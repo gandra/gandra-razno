@@ -13,17 +13,15 @@
 3. [Ključno pravilo: Non-destructive deployment](#3-ključno-pravilo-non-destructive-deployment)
 4. [Infrastrukturni preduslovi](#4-infrastrukturni-preduslovi)
 5. [Pristupi integraciji (sumarno)](#5-pristupi-integraciji-sumarno)
-6. [Pristup C: Dual-mode sa Facade/Gateway (⭐ Preporuka)](#6-pristup-c-dual-mode-sa-facadegateway--preporuka)
-7. [Dependency analiza: oci-library i sc-notifications-client](#7-dependency-analiza-oci-library-i-sc-notifications-client)
-8. [Strategije za dependency problem](#8-strategije-za-dependency-problem)
-9. [Detaljan dizajn preporučenog pristupa](#9-detaljan-dizajn-preporučenog-pristupa)
-10. [Strategija baze podataka](#10-strategija-baze-podataka)
-11. [Docker konfiguracija](#11-docker-konfiguracija)
-12. [Lokalno razvojno okruženje](#12-lokalno-razvojno-okruženje)
-13. [Dev/Cloud okruženje](#13-devcloud-okruženje)
-14. [Plan implementacije](#14-plan-implementacije)
-15. [Obrazloženje preporuke](#15-obrazloženje-preporuke)
-16. [Post-implementacija](#16-post-implementacija)
+6. [Preporučeni pristup: Dual-mode Facade + Plain HTTP](#6-preporučeni-pristup-dual-mode-facade--plain-http)
+7. [Odnos sa sc-notifications-client](#7-odnos-sa-sc-notifications-client)
+8. [Detaljan dizajn](#8-detaljan-dizajn)
+9. [Strategija baze podataka](#9-strategija-baze-podataka)
+10. [Docker konfiguracija](#10-docker-konfiguracija)
+11. [Lokalno i Dev/Cloud okruženje](#11-lokalno-i-devcloud-okruženje)
+12. [Plan implementacije](#12-plan-implementacije)
+13. [Obrazloženje preporuke](#13-obrazloženje-preporuke)
+14. [Post-implementacija](#14-post-implementacija)
 
 ---
 
@@ -48,54 +46,46 @@ public interface MailerService {
 
 ### 1.2 Korisnici email servisa
 
-**oci-api (3 poziva):**
+**oci-api (3 poziva):** `UserRegistrationService` (registracija, resend token), `UsersService` (reset lozinke)
 
-| Klasa | Email | Format |
-|-------|-------|--------|
-| `UserRegistrationService` | Potvrda registracije | Text |
-| `UserRegistrationService` | Ponovo pošalji token | HTML/Text |
-| `UsersService` | Reset lozinke | Text |
+**oci-monitor (6 poziva):** `BudgetNotificationService`, `BudgetCompartmentService`, `SubscriptionNotificationService`, `CommitmentNotificationService`, `CostReportsService`, `MetricsNotificationEventListener`
 
-**oci-monitor (6 poziva):**
-
-| Klasa | Email | Format |
-|-------|-------|--------|
-| `BudgetNotificationService` | Prekoračenje budžeta | HTML |
-| `BudgetCompartmentService` | Prekoračenje po kompartmentima | HTML |
-| `SubscriptionNotificationService` | Limiti pretplate | HTML/Text |
-| `CommitmentNotificationService` | Limiti obaveza | Text |
-| `CostReportsService` | Greška cost reporta | HTML |
-| `MetricsNotificationEventListener` | Metrička notifikacija | Text |
-
-### 1.3 Trenutna infrastruktura
+### 1.3 Dijagram zavisnosti — trenutno stanje
 
 ```
-docker-compose-local.yml:      MySQL (samo)
-docker-compose-cloud-dev.yml:  web(nginx) + ui + api + monitor + db(MySQL)
-```
-
-### 1.4 Dijagram trenutnog stanja
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        oci-backend                              │
-│                                                                 │
-│  ┌──────────────────────┐       ┌──────────────────────────┐   │
-│  │      oci-api          │       │      oci-monitor          │   │
-│  │                       │       │                           │   │
-│  │  MailerService (I)    │       │  MailerService (I)        │   │
-│  │   ├─SmtpMailerSvc     │       │   ├─SmtpMailerSvc         │   │
-│  │   └─SendGridMailerSvc │       │   └─SendGridMailerSvc     │   │
-│  │                       │       │                           │   │
-│  │  Pozivi: 3            │       │  Pozivi: 6                │   │
-│  └──────────┬────────────┘       └──────────┬────────────────┘   │
-│             └───────────┬───────────────────┘                    │
-│                         ▼                                        │
-│              ┌─────────────────────┐                             │
-│              │   SMTP / SendGrid   │                             │
-│              │   (direktan poziv)  │                             │
-│              └─────────────────────┘                             │
-└─────────────────────────────────────────────────────────────────┘
+┌─ oci-backend (Java 17, Spring Boot 3.2.1) ──────────────────────────────┐
+│                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────┐    │
+│  │                     oci-library (plain JAR)                      │    │
+│  │                                                                  │    │
+│  │  entity/  dto/  enums/  utils/  exception/                      │    │
+│  │  (čiste Java klase — nema @Service, @Component, @Configuration) │    │
+│  │  Zavisnosti: opencsv, spring-boot-starter-test (test scope)     │    │
+│  └──────────────────────────────────────────────────────────────────┘    │
+│        ▲ Maven dependency               ▲ Maven dependency              │
+│        │                                 │                               │
+│  ┌─────┴──────────────┐          ┌───────┴──────────────────┐           │
+│  │     oci-api         │          │     oci-monitor           │           │
+│  │     port: 8080      │          │     port: 8081            │           │
+│  │                     │          │                           │           │
+│  │  MailerService ────────────────── MailerService            │           │
+│  │   ├─SmtpMailerSvc   │          │   ├─SmtpMailerSvc         │           │
+│  │   └─SendGridSvc     │          │   └─SendGridSvc           │           │
+│  │                     │          │                           │           │
+│  │  Pozivi: 3          │          │  Pozivi: 6                │           │
+│  └─────────┬───────────┘          └───────────┬──────────────┘           │
+│            │                                  │                          │
+│            └──────────┬───────────────────────┘                          │
+│                       ▼                                                  │
+│            ┌─────────────────────┐                                       │
+│            │  SMTP / SendGrid    │  (direktan poziv, nema failover)      │
+│            └─────────────────────┘                                       │
+│                                                                          │
+│  ┌──────┐                                                                │
+│  │MySQL │  oci-backend baza                                              │
+│  │ 3306 │                                                                │
+│  └──────┘                                                                │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -103,64 +93,51 @@ docker-compose-cloud-dev.yml:  web(nginx) + ui + api + monitor + db(MySQL)
 ## 2. Ciljevi refaktora
 
 1. **Uvesti sc-notifications kao novi kanal** — dodati mogućnost slanja notifikacija putem sc-notifications REST API-ja, uz zadržavanje postojećeg email sistema
-2. **Kontrola putem konfiguracije** — koji email sistem se koristi (legacy SMTP/SendGrid ili sc-notifications) određuje se isključivo konfiguracijom, **bez promene koda** između okruženja
+2. **Kontrola putem konfiguracije** — koji email sistem se koristi određuje se isključivo konfiguracijom, **bez promene koda** između okruženja
 3. **Podrazumevano ponašanje = legacy** — ako se ne promeni nijedna konfiguracija, sistem radi identično kao do sada
-4. **Jedan codebase, više produkcija** — isti build artifact (JAR) se deployuje na sva okruženja. Razlika je samo u konfiguraciji.
-5. **Dobiti failover/retry/DLQ** — na okruženjima koja koriste sc-notifications
-6. **Proširivost** — novi kanali (SMS, webhook, websocket) dostupni na SC okruženjima bez izmena koda
+4. **Jedan codebase, više produkcija** — isti build artifact (JAR) na sva okruženja
+5. **Failover/retry/DLQ** — na okruženjima sa sc-notifications, automatski
+6. **Proširivost** — SMS, webhook, websocket dostupni na SC okruženjima bez izmena koda
 
-> **Ključno:** Stari email kod (`MailerService`, `SmtpMailerService`, `SendGridMailerService`, `EmailConfig`) **ostaje u codebase-u**. Aplikacija je deplojovana na više produkcija. Samo na nekim okruženjima ćemo aktivirati nove notifikacije. Drugi klijenti koriste stari sistem — patching/bugfix treba biti moguć na istom codebase-u.
+> **Ključno:** Stari email kod **ostaje u codebase-u**. Aplikacija je na više produkcija. Samo na nekim okruženjima aktiviramo sc-notifications. Patching/bugfix na starom email toku mora biti moguć na istom codebase-u.
 
 ---
 
 ## 3. Ključno pravilo: Non-destructive deployment
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   ISTI BUILD ARTIFACT (JAR)  ───deploy───►  Okruženje X         │
-│                              ───deploy───►  Okruženje Y         │
-│                              ───deploy───►  Okruženje Z         │
-│                                                                 │
-│   X:  email.notification.mode ne postoji    → default "legacy"  │
-│   Y:  email.notification.mode = legacy      → SMTP/SendGrid    │
-│   Z:  email.notification.mode = sc-notifications → ✨ REST API │
-│                                                                 │
-│   X i Y rade identično kao pre refaktora.                       │
-│   Z koristi nove notifikacije putem REST API-ja.                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                                                                │
+│  ISTI JAR ARTIFACT  ──deploy──►  Okruženje X (klijent A)      │
+│                     ──deploy──►  Okruženje Y (klijent B)      │
+│                     ──deploy──►  Okruženje Z (dev/test)       │
+│                                                                │
+│  X:  email.notification.mode ne postoji  → default "legacy"   │
+│  Y:  email.notification.mode = legacy    → SMTP/SendGrid     │
+│  Z:  email.notification.mode = sc-notifications → REST API   │
+│                                                                │
+│  X i Y rade identično kao pre refaktora.                      │
+│  Z koristi sc-notifications.                                  │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-| Scenario | Očekivano ponašanje |
-|----------|---------------------|
-| Deploy bez promene env vars | ✅ Radi identično kao pre — SMTP/SendGrid |
-| `email.notification.mode=legacy` | ✅ Eksplicitno legacy |
+| Scenario | Ponašanje |
+|----------|-----------|
+| Deploy bez promene env vars | ✅ Identično kao pre — SMTP/SendGrid |
 | `email.notification.mode=sc-notifications` | ✅ Koristi sc-notifications REST API |
-| sc-notifications mod, ali servis nedostupan | ⚠️ Loguje error, ne pada aplikacija |
-| Rollback na stari deploy | ✅ Bezbedan — stari kod ne zavisi od novih klasa |
+| SC mod, ali servis nedostupan | ⚠️ Loguje error, ne pada aplikacija |
+| Rollback | ✅ Promena jednog property-ja |
 
 ---
 
 ## 4. Infrastrukturni preduslovi
 
-### 4.1 Dockerfile za sc-notifications
-
-sc-notifications **nema Dockerfile**. Kreirati ga za okruženja sa SC:
-
-```dockerfile
-FROM eclipse-temurin:25-jre-alpine
-WORKDIR /app
-COPY target/sc-notifications-*.jar app.jar
-EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "app.jar"]
-```
-
-### 4.2 Potrebni servisi (samo za SC okruženja)
+sc-notifications **nema Dockerfile** — kreirati ga. Potrebni servisi (samo za SC okruženja):
 
 | Servis | Image | Portovi (local) |
 |--------|-------|-----------------|
-| sc-notifications | custom build | 8091:8081 |
+| sc-notifications | custom build (Java 25) | 8091:8081 |
 | PostgreSQL 17.6 | postgres:17.6-alpine | 5432:5432 |
 | RabbitMQ 4.1.4 | rabbitmq:4.1.4-management-alpine | 5672, 15672 |
 | Mailpit | ghcr.io/axllent/mailpit:latest | 13081:1025, 14081:8025 |
@@ -171,230 +148,286 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 ## 5. Pristupi integraciji (sumarno)
 
-| Pristup | Opis | Status |
-|---------|------|--------|
-| **A: SDK čist prelaz** | Potpun prelaz na sc-notifications, uklanja stari email kod | ❌ Krši non-destructive princip. Dugoročni cilj. |
-| **B: Embedded mode** | sc-notifications kao in-process biblioteka u oci-backend JVM | ❌ **Blokirano:** Java 25 vs Java 17 nekompatibilnost |
-| **C: Dual-mode Facade** | Oba sistema žive u codebase-u, konfig bira mod | ⭐ **Preporuka** — detalji u sekciji 6 |
-
-Pristup **A** je **dugoročni cilj** — kada sve produkcije pređu na sc-notifications, Pristup C se transformiše u A brisanjem legacy koda.
-
-Pristup **B** zahteva nadogradnju oci-backend na Java 25 — zaseban, visokorizičan projekat koji nije predmet ovog plana.
+| Pristup | Status | Razlog |
+|---------|--------|--------|
+| **A: SDK čist prelaz** — uklanja stari kod, svi koriste SC | ❌ | Krši non-destructive princip. Dugoročni cilj. |
+| **B: Embedded** — sc-notifications kao in-process biblioteka | ❌ | Blokirano: Java 25 vs Java 17 nekompatibilnost. |
+| **C: Dual-mode Facade + Plain HTTP** | ⭐ | Oba sistema žive u codebase-u. Konfig bira. Default = legacy. |
 
 ---
 
-## 6. Pristup C: Dual-mode sa Facade/Gateway (⭐ Preporuka)
+## 6. Preporučeni pristup: Dual-mode Facade + Plain HTTP
 
-`NotificationFacade` u `oci-library` podržava oba moda — legacy i sc-notifications. Mod se bira **isključivo konfiguracijom**. Default: `legacy`.
+### 6.1 Zašto ne koristimo sc-notifications-client kao Maven zavisnost?
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                           oci-backend                                  │
-│                                                                        │
-│  ┌─────────────────────┐        ┌────────────────────────────┐        │
-│  │      oci-api         │        │      oci-monitor            │        │
-│  │  UserRegistration    │        │  BudgetNotificationSvc      │        │
-│  │  UsersService        │        │  BudgetCompartmentSvc       │        │
-│  │  ...                 │        │  CostReportsService  ...    │        │
-│  └──────────┬───────────┘        └──────────────┬──────────────┘        │
-│             └──────────────┬────────────────────┘                       │
-│                            ▼                                            │
-│           ┌───────────────────────────────────┐                        │
-│           │     NotificationFacade            │  (oci-library)         │
-│           │     email.notification.mode       │                        │
-│           └───────────┬───────────────────────┘                        │
-│                       │                                                 │
-│          ┌────────────┴─────────────┐                                   │
-│          │                          │                                   │
-│  ┌───────┴───────┐       ┌─────────┴──────────┐                        │
-│  │ mode=legacy   │       │ mode=sc-notif.     │                        │
-│  │ (DEFAULT)     │       │                     │                        │
-│  │               │       │ ScNotifications     │                        │
-│  │ MailerService │       │ RestClient          │                        │
-│  │ (postojeći)   │       │ (HTTP POST)         │                        │
-│  └───────┬───────┘       └─────────┬───────────┘                        │
-│          │                         │                                    │
-│          ▼                         ▼                                    │
-│  ┌──────────────┐       ┌──────────────────────┐                       │
-│  │ SMTP/SendGrid│       │  sc-notifications    │                       │
-│  │ (direktno)   │       │  REST API (:8091)    │                       │
-│  └──────────────┘       └──────────────────────┘                       │
-└────────────────────────────────────────────────────────────────────────┘
-```
+**Tri blokera onemogućavaju direktno dodavanje `sc-notifications-client` u `oci-library/pom.xml`:**
+
+| # | Problem | Detalj |
+|---|---------|--------|
+| 1 | **Java bytecode** | sc-notifications-client kompajliran za Java 25 (major version: 69). oci-backend JVM = Java 17 (max: 61). → `UnsupportedClassVersionError` |
+| 2 | **Spring Boot verzija** | sc-notifications-client → sistemi-starter-parent → Spring Boot **3.5.11**. oci-backend → Spring Boot **3.2.1**. Auto-konfiguracija pisana za 3.5 možda koristi API-je koji ne postoje u 3.2. |
+| 3 | **Tranzitivne zavisnosti** | sc-notifications-client → sc-commons donosi Hibernate 6.6.x, QueryDSL 5.1, MapStruct 1.6, Flyway 11.3 — sve u konfliktu sa oci-backend verzijama. |
+
+### 6.2 Šta radimo umesto toga?
+
+Pišemo **lak REST klijent** (`ScNotificationsClient`) direktno u `oci-library` koristeći Spring-ov `RestClient` koji je već na classpath-u. **Nula novih zavisnosti.** Pratimo isti REST API kontract koji koristi sc-notifications-client, ali sa našim kodom kompajliranim za Java 17.
 
 ---
 
-## 7. Dependency analiza: oci-library i sc-notifications-client
+## 7. Odnos sa sc-notifications-client
 
-### 7.1 Karakter oci-library modula
+### 7.1 Šta postoji u sc-notifications-client
 
-Analiza `oci-library/pom.xml` i source koda:
-
-```
-oci-library/
-├── pom.xml                    ← packaging: jar, spring-boot-maven-plugin: skip=true
-├── src/main/java/
-│   └── com/sistemisolutions/oci/lib/
-│       ├── bean/              ← 1 POJO
-│       ├── common/            ← BaseEntity, PageableFilter, enums
-│       ├── dto/               ← 11 DTO klasa
-│       ├── entity/            ← ~50 JPA @Entity klasa
-│       ├── enums/             ← 13 enum tipova
-│       ├── exception/         ← 2 custom exception klase
-│       └── utils/             ← 11 utility klasa
-└── (NEMA @Service, @Component, @Configuration, @Bean)
-```
-
-**Ključne karakteristike:**
-- **Plain JAR** — `spring-boot-maven-plugin` sa `<skip>true</skip>`
-- **Nula Spring beans** — čiste Java klase: entity-ji, DTO-ovi, enum-ovi, utility-ji
-- **Nema auto-konfiguracije** — nema `META-INF/spring.factories` niti `AutoConfiguration.imports`
-- **Minimalne zavisnosti** — samo `spring-boot-starter-test` (test scope) + `opencsv`
-- Nasleđuje sve zavisnosti iz parent POM-a (`oci-backend/pom.xml`)
-
-### 7.2 Karakter sc-notifications-client modula
+sc-notifications-client (`com.sistemisolutions.core.notifications.client`) sadrži 16 Java fajlova:
 
 ```
-sc-notifications-client/
-├── pom.xml                    ← parent: sistemi-starter-parent:1.0.6-RELEASE
-├── src/main/java/             ← 16 Java fajlova (client, config, DTOs, enums, handler)
-└── src/main/resources/
-    └── META-INF/spring/
-        └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
-            ├── NotificationApiAutoConfiguration    ← @ConditionalOnProperty("notification.client.base-url")
-            └── NotificationAckAutoConfiguration    ← @ConditionalOnProperty("notification.client.ack.enabled")
+sc-notifications-client/src/main/java/.../client/
+├── NotificationApiClient.java              ← REST klijent (RestClient)
+├── config/
+│   ├── NotificationApiAutoConfiguration    ← @ConditionalOnProperty("base-url")
+│   ├── NotificationAckAutoConfiguration    ← @ConditionalOnProperty("ack.enabled")
+│   └── properties/
+│       └── NotificationClientProperties    ← @ConfigurationProperties("notification.client")
+├── enums/
+│   ├── DeliveryStatusType                  ← SUCCESS, TEMP_FAILURE, PERM_FAILURE, UNKNOWN
+│   ├── NotificationChannelType             ← EMAIL, SMS, PUSH, SLACK, WEBHOOK, WEBSOCKET
+│   └── NotificationResponseStatus          ← ACCEPTED, REJECTED, QUEUED
+├── handler/
+│   └── NotificationDeliveryReceiptHandler  ← @FunctionalInterface (ACK callback)
+├── listener/
+│   └── NotificationAckListener             ← @RabbitListener za ACK poruke
+├── model/
+│   ├── ack/
+│   │   └── NotificationDeliveryReceipt     ← ACK DTO (uuid, status, provider, timestamp)
+│   ├── request/
+│   │   ├── SendEmailRequest                ← to, subject, body, html, from, cc, bcc, providerKeys, meta
+│   │   ├── SendWebhookRequest              ← url, httpMethod, body, headers, retryAttempts
+│   │   └── SendMattermostWebhookRequest    ← text, username, iconUrl, webhookUrl
+│   └── response/
+│       └── NotificationResponse            ← notificationUuid, correlationId, status, channel
+└── info/
+    ├── NotificationsClientInfo             ← Git info bean
+    └── NotificationsClientGitProperties    ← Git properties
 ```
 
-### 7.3 Identifikovani problemi
+**Funkcionalnosti:**
 
-#### ❌ PROBLEM 1: Java Bytecode Nekompatibilnost (BLOKER)
+| Grupa | Klase | Opis |
+|-------|-------|------|
+| **REST klijent** | `NotificationApiClient` | POST ka `/api/v1/notifications/email`, `/webhook`, `/webhook/mattermost` |
+| **Auto-konfiguracija** | `NotificationApiAutoConfiguration` | Kreira `RestClient` + `NotificationApiClient` bean kad postoji `base-url` |
+| **ACK listener** | `NotificationAckAutoConfiguration`, `NotificationAckListener` | RabbitMQ consumer za delivery receipts (fanout exchange) |
+| **DTO-ovi** | `SendEmailRequest`, `NotificationResponse`, `NotificationDeliveryReceipt` | Request/response/ACK modeli |
+| **Enumi** | 3 enum klase | Status tipovi |
+| **Info** | 2 klase | Git commit info (irelevantno za nas) |
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                                                                    │
-│  sc-notifications-client.jar                                       │
-│  ├── NotificationApiClient.class    → major version: 69 (Java 25) │
-│  └── (sve klase)                    → major version: 69 (Java 25) │
-│                                                                    │
-│  sc-commons.jar (tranzitivna zavisnost)                            │
-│  ├── AppException.class             → major version: 69 (Java 25) │
-│  └── (sve klase)                    → major version: 69 (Java 25) │
-│                                                                    │
-│  oci-backend JVM                                                   │
-│  └── Java 17                        → max major version: 61        │
-│                                                                    │
-│  REZULTAT: UnsupportedClassVersionError pri učitavanju bilo       │
-│  koje klase iz sc-notifications-client ili sc-commons              │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
-```
+### 7.2 Šta MI radimo (Strategija D-A: Plain HTTP)
 
-**Verifikovano:**
-```
-$ javap -verbose NotificationApiClient.class | grep "major version"
-  major version: 69
+**NE koristimo** sc-notifications-client JAR kao Maven zavisnost.
 
-$ javap -verbose AppException.class | grep "major version"
-  major version: 69
-```
-
-`sistemi-starter-parent:1.0.6-RELEASE` definiše:
-```xml
-<java.version>25</java.version>
-<maven.compiler.source>25</maven.compiler.source>
-<maven.compiler.target>25</maven.compiler.target>
-```
-
-**Java 17 JVM ne može učitati klase kompajlirane za Java 25.** Ovo je hardkodirana JVM limitacija — nema workaround-a na runtime nivou.
-
-#### ⚠️ PROBLEM 2: Spring Boot Version Mismatch
-
-| Aspekt | oci-backend | sc-notifications-client |
-|--------|-------------|------------------------|
-| Spring Boot | **3.2.1** | **3.5.11** (via sistemi-starter-parent) |
-| Spring Framework | ~6.1.x | ~6.2.x |
-| Hibernate | 6.4.4.Final | 6.6.29.Final |
-
-Čak i ako se reši Problem 1, Spring Boot 3.5.11 klase (iz auto-konfiguracije) možda koriste API-je koji ne postoje u Spring Boot 3.2.1 runtime-u.
-
-#### ⚠️ PROBLEM 3: Tranzitivne zavisnosti — verzijski konflikti
-
-`sc-notifications-client` → `sc-commons` donosi:
-
-| Zavisnost | oci-backend verzija | sc-commons verzija | Konflikt |
-|-----------|--------------------|--------------------|:--------:|
-| QueryDSL | 5.0.0 | 5.1.0 | ⚠️ |
-| MapStruct | 1.5.5.Final | 1.6.3 | ⚠️ |
-| Lombok | 1.18.30 | 1.18.42 | ⚠️ |
-| Flyway | 10.0.1 | 11.3.3 | ⚠️ |
-| Jackson | 2.16.0 | (Spring Boot 3.5.x managed) | ⚠️ |
-
-Maven dependency resolution bi birao jednu verziju (nearest-wins), ali nepodudarnost može izazvati runtime greške.
-
-### 7.4 Zaključak dependency analize
+**REPLICIAMO** samo ono što nam treba — REST poziv i DTO-ove — kao naš Java 17 kod u `oci-library`:
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│  sc-notifications-client se NE MOŽE dodati kao              │
-│  Maven zavisnost u oci-library/pom.xml                      │
-│                                                              │
-│  Razlog: Java 25 bytecode na Java 17 JVM                    │
-│  = UnsupportedClassVersionError                             │
-│                                                              │
-│  Čak i sa cross-kompilacijom: Spring Boot version           │
-│  mismatch (3.5.11 vs 3.2.1) donosi rizik.                  │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  sc-notifications-client (Java 25)          oci-library (Java 17)           │
+│  ════════════════════════════                ═══════════════════════          │
+│                                                                              │
+│  NotificationApiClient ──── replicirano ──→ ScNotificationsClient           │
+│   └─ sendEmail()                             └─ sendEmail()                  │
+│   └─ sendWebhook()                           (webhook/mattermost later)     │
+│   └─ sendMattermostWebhook()                                                │
+│                                                                              │
+│  SendEmailRequest ─────── replicirano ──→ ScSendEmailRequest                │
+│   └─ to, subject, body,                   └─ to, subject, body,             │
+│      html, fromEmail,                        html, fromEmail,               │
+│      cc, bcc, providerKeys,                  cc, bcc, providerKeys,         │
+│      deliveryMode, meta                      deliveryMode, meta             │
+│                                                                              │
+│  NotificationResponse ─── replicirano ──→ ScNotificationResponse            │
+│   └─ notificationUuid,                    └─ notificationUuid,              │
+│      correlationId,                          correlationId,                  │
+│      status, channel                         status, channel                │
+│                                                                              │
+│  NotificationApiAutoConfig ─ NE treba ──→ @ConditionalOnProperty            │
+│  NotificationClientProperties              na ScNotificationsClient          │
+│   (Spring Boot 3.5 auto-config)            (jednostavan @Value inject)       │
+│                                                                              │
+│  NotificationAckAutoConfig ── LATER ──→ Opciono u budućnosti                │
+│  NotificationAckListener                (kad bude potreban ACK)             │
+│  NotificationDeliveryReceipt                                                │
+│  NotificationDeliveryReceiptHandler                                         │
+│                                                                              │
+│  Enumi (3) ───────────────── NE treba ──→ Koristimo String za status       │
+│  Info klase (2) ─────────── NE treba ──→ Irelevantno                       │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 7.3 Dijagram zavisnosti i komunikacije — ciljno stanje
+
+```
+┌─ Build time (Maven) ──────────────────────────────────────────────────────────┐
+│                                                                               │
+│  sistemi-starter-parent (Java 25, SB 3.5.11)                                │
+│       │                                                                       │
+│       ├── sc-commons ──────────┐                                             │
+│       │                        ▼                                              │
+│       ├── sc-notifications-client ←── NE KORISTIMO u oci-backend             │
+│       │                                                                       │
+│       └── sc-notifications (servis, Java 25)                                 │
+│               │                                                               │
+│               └── Dockerfile → Docker image                                  │
+│                                                                               │
+│  spring-boot-starter-parent (Java 17, SB 3.2.1)                             │
+│       │                                                                       │
+│       └── oci-backend                                                        │
+│            ├── oci-library ←── ScNotificationsClient (naš kod, Java 17)      │
+│            ├── oci-api ────── zavisi od oci-library                           │
+│            └── oci-monitor ── zavisi od oci-library                           │
+│                                                                               │
+│  NEMA Maven zavisnosti između oci-backend i sc-* projekata                   │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─ Runtime (komunikacija) ─────────────────────────────────────────────────────┐
+│                                                                               │
+│                                                                               │
+│  ┌──────────────┐  ┌────────────────┐                                        │
+│  │   oci-api    │  │  oci-monitor   │   Java 17, Spring Boot 3.2.1           │
+│  │   :8080      │  │  :8081         │                                        │
+│  │              │  │                │                                        │
+│  │  Notif.      │  │  Notif.        │                                        │
+│  │  Facade      │  │  Facade        │                                        │
+│  └──────┬───────┘  └───────┬────────┘                                        │
+│         │                  │                                                  │
+│         │ email.notification.mode = ?                                        │
+│         │                  │                                                  │
+│    ┌────┴────┐       ┌────┴────┐                                             │
+│    │ legacy  │       │ sc-notif│                                              │
+│    │ (dflt)  │       │         │                                              │
+│    ▼         │       ▼         │                                              │
+│ ┌────────┐   │   ┌────────┐   │                                              │
+│ │ SMTP / │   │   │ HTTP   │   │                                              │
+│ │ SGrid  │   │   │ POST   │   │                                              │
+│ │(direkt)│   │   │        │   │                                              │
+│ └────────┘   │   └───┬────┘   │                                              │
+│              │       │        │                                               │
+│              │       │ REST   │                                               │
+│              │       ▼        │                                               │
+│              │  ┌──────────────────────────────────┐                         │
+│              │  │     sc-notifications             │  Java 25, SB 3.5       │
+│              │  │     :8091                        │                         │
+│              │  │                                  │                         │
+│              │  │  POST /api/v1/notifications/email │                         │
+│              │  │                                  │                         │
+│              │  │  Gateway → Dispatcher            │                         │
+│              │  │  → EmailChannel                  │                         │
+│              │  │    ├─ smtp_loopia  (failover 1)  │                         │
+│              │  │    ├─ api_sendgrid (failover 2)  │                         │
+│              │  │    └─ api_mailtrap (failover 3)  │                         │
+│              │  │  → ACK Publisher                  │                         │
+│              │  └──────────┬───────────────────────┘                         │
+│              │             │                                                  │
+│              │     ┌───────┼──────────────┐                                   │
+│              │     ▼       ▼              ▼                                   │
+│              │   ┌────┐ ┌──────────┐ ┌───────────┐                           │
+│              │   │ PG │ │ RabbitMQ │ │  Mailpit  │                           │
+│              │   │5432│ │5672/15672│ │13081/14081│                           │
+│              │   └────┘ └──────────┘ └───────────┘                           │
+│              │                                                                │
+│  ┌──────┐    │                                                                │
+│  │MySQL │    │  oci-backend baza (bez promena)                                │
+│  │ 3306 │    │                                                                │
+│  └──────┘    │                                                                │
+│              │                                                                │
+└──────────────┘────────────────────────────────────────────────────────────────┘
+```
+
+### 7.4 Komunikacioni protokol — šta naš klijent radi
+
+Naš `ScNotificationsClient` radi **identičan HTTP poziv** kao `NotificationApiClient` iz sc-notifications-client:
+
+```
+ScNotificationsClient (naš kod, Java 17)
+        │
+        │  HTTP POST
+        │  URL: http://sc-notifications:8091/api/v1/notifications/email
+        │  Content-Type: application/json
+        │  Body: {
+        │    "to": ["user@example.com"],
+        │    "subject": "Budget Alert",
+        │    "body": "<h1>Prekoračenje</h1>...",
+        │    "html": true,
+        │    "fromEmail": "noreply@company.com",
+        │    "meta": { "correlationId": "uuid-123" }
+        │  }
+        │
+        ▼
+sc-notifications server (Java 25)
+        │
+        │  Response HTTP 202 Accepted
+        │  Body: {
+        │    "notificationUuid": "...",
+        │    "correlationId": "uuid-123",
+        │    "status": "ACCEPTED",
+        │    "channel": "EMAIL"
+        │  }
+        │
+        ▼
+NotificationApiController → NotificationApiService
+→ NotificationGateway → Dispatcher → EmailChannel
+→ Provider (smtp_loopia → failover → api_sendgrid → ...)
+→ DeliveryReceiptPublisher → RabbitMQ (ACK)
+```
+
+> JSON format je isti. Endpoint je isti. Jedina razlika: mi pišemo `RestClient.post()` u Javi 17 umesto da koristimo sc-notifications-client `NotificationApiClient` klasu kompajliranu za Java 25.
+
+### 7.5 Šta je odloženo za kasnije (ACK)
+
+ACK (delivery receipts) zahteva RabbitMQ listener. sc-notifications-client ovo rešava putem `NotificationAckAutoConfiguration` + `NotificationAckListener`. Mi to za sada **preskačemo** — implementiraćemo kad bude potrebno, koristeći `spring-boot-starter-amqp` (koji je kompatibilan sa Spring Boot 3.2.1).
 
 ---
 
-## 8. Strategije za dependency problem
+## 8. Detaljan dizajn
 
-### 8.1 Strategija D-A: Plain HTTP RestClient u oci-library (⭐ Preporuka)
-
-**Opis:** Napisati lak REST klijent direktno u `oci-library` koristeći Spring-ov `RestClient` (već na classpath-u oci-backend-a). Nema zavisnosti na sc-notifications-client. Nema Java version problema.
+### 8.1 Nove klase u oci-library
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                      oci-library                               │
-│                                                                │
-│  ScNotificationsClient.java  ← NAŠI klasa, plain HTTP        │
-│  SendEmailRequest.java       ← NAŠI DTO (kopija strukture)   │
-│  NotificationResponse.java   ← NAŠI DTO (kopija strukture)   │
-│  NotificationFacade.java     ← Dual-mode facade              │
-│                                                                │
-│  Zavisnosti: NULA novih (RestClient je deo spring-boot-web)  │
-│  Java version: 17 ✅                                          │
-│  Spring Boot: 3.2.1 ✅                                        │
-│  Tranzitivne zavisnosti: NULA novih ✅                        │
-└────────────────────────────────────────────────────────────────┘
+oci-library/src/main/java/com/sistemisolutions/oci/lib/
+└── notification/
+    ├── NotificationFacade.java           ← Dual-mode facade
+    ├── ScNotificationsClient.java        ← Plain HTTP klijent
+    ├── dto/
+    │   ├── ScSendEmailRequest.java       ← Request DTO
+    │   └── ScNotificationResponse.java   ← Response DTO
+    └── mapper/
+        └── NotificationMapper.java       ← OCI DTO → SC DTO
 ```
 
-**Implementacija:**
+### 8.2 ScNotificationsClient
 
 ```java
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "email.notification.mode", havingValue = "sc-notifications")
+@ConditionalOnProperty(name = "notification.sc.base-url")
 public class ScNotificationsClient {
 
+   private static final String EMAIL_PATH = "/api/v1/notifications/email";
    private final RestClient restClient;
 
    public ScNotificationsClient(
-         @Value("${notification.sc.base-url}") String baseUrl,
-         @Value("${notification.sc.connect-timeout-ms:5000}") int connectTimeout,
-         @Value("${notification.sc.read-timeout-ms:10000}") int readTimeout) {
+         @Value("${notification.sc.base-url}") String baseUrl) {
       this.restClient = RestClient.builder()
          .baseUrl(baseUrl)
+         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
          .build();
    }
 
    public ScNotificationResponse sendEmail(ScSendEmailRequest request) {
       return restClient.post()
-         .uri("/api/v1/notifications/email")
-         .contentType(MediaType.APPLICATION_JSON)
+         .uri(EMAIL_PATH)
          .body(request)
          .retrieve()
          .body(ScNotificationResponse.class);
@@ -402,10 +435,12 @@ public class ScNotificationsClient {
 }
 ```
 
-DTO-ovi su jednostavni POJO-i — ne zahtevaju sc-notifications-client:
+> Bean se kreira **samo** kad `notification.sc.base-url` postoji. Legacy okruženja: bean ne postoji, nema greške.
+
+### 8.3 DTO-ovi
 
 ```java
-@Data @Builder
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class ScSendEmailRequest {
    private List<String> to;
    private String subject;
@@ -413,117 +448,26 @@ public class ScSendEmailRequest {
    private boolean html;
    private String fromEmail;
    private String fromName;
-   // opciono: cc, bcc, replyToEmail, providerKeys, meta
+   private List<String> cc;
+   private List<String> bcc;
+   private String replyToEmail;
+   private String replyToName;
+   private List<String> providerKeys;
+   private String deliveryMode;
+   private Map<String, Object> meta;
 }
 
-@Data
+@Data @NoArgsConstructor @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ScNotificationResponse {
-   private String notificationUuid;
+   private UUID notificationUuid;
    private String correlationId;
-   private String status;  // ACCEPTED, REJECTED, QUEUED
-   private String channel;
+   private String status;   // ACCEPTED, REJECTED, QUEUED
+   private String channel;  // EMAIL, WEBHOOK, ...
 }
 ```
 
-**Prednosti:**
-
-| # | Prednost |
-|---|----------|
-| 1 | **Nula novih zavisnosti** — RestClient je deo spring-boot-starter-web (već u classpath-u) |
-| 2 | **Nula Java version rizika** — sve je Java 17 kod |
-| 3 | **Nula Spring Boot version konflikta** — ne uvozimo tuđi BOM |
-| 4 | **Potpuna kontrola** — naš kod, naši DTO-ovi, lako se menja |
-| 5 | **@ConditionalOnProperty** — bean se kreira samo kad treba |
-| 6 | sc-notifications REST API je stabilan i jednostavan (3 endpointa) |
-
-**Mane:**
-
-| # | Mana | Ozbiljnost |
-|---|------|:----------:|
-| 1 | DTO-ovi su kopija — treba ručno održavati ako se API menja | ⚠️ Nisko (API je stabilan) |
-| 2 | Nema ACK listener-a iz kutije — treba ga implementirati ručno | ⚠️ Srednje (opcionalno) |
-| 3 | Nema auto-retry na HTTP nivou | ⚠️ Nisko (sc-notifications ima interni retry) |
-
----
-
-### 8.2 Strategija D-B: Cross-kompilacija sc-notifications-client za Java 17
-
-**Opis:** Dodati build profil u sc-notifications-client koji kompajlira sa `-source 17 -target 17`. Objaviti poseban artifact (npr. classifier `java17`).
-
-**Preduslov:** sc-notifications-client kod NE koristi Java 18+ jezičke feature-ove. Verifikovano — nema `sealed`, `record`, pattern matching, enhanced switch. Tehnički izvodljivo.
-
-```xml
-<!-- sc-notifications-client/pom.xml — novi profil -->
-<profile>
-    <id>java17</id>
-    <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <maven.compiler.release>17</maven.compiler.release>
-    </properties>
-</profile>
-```
-
-**Problem:** sc-commons je takođe Java 25. Treba cross-kompajlirati i sc-commons za Java 17.
-
-| Aspekt | Ocena |
-|--------|-------|
-| Java bytecode | ✅ Rešeno cross-kompilacijom |
-| Spring Boot mismatch | ⚠️ Još uvek 3.5.11 auto-config sa 3.2.1 runtime |
-| Tranzitivne zavisnosti | ⚠️ sc-commons donosi verzijski konflikt |
-| Održavanje | ❌ Treba buildovati/objavljivati 2 artifacta (java17 + java25) |
-| Rizik | ⚠️ Spring Boot 3.5 auto-config na 3.2 runtime-u — nepredvidivo |
-
----
-
-### 8.3 Strategija D-C: Extrahovati sc-notifications-client-api modul
-
-**Opis:** Kreirati ultra-tanak modul `sc-notifications-client-api` koji sadrži samo DTO-ove i interfejse. Kompajlirati za Java 17. Bez sc-commons zavisnosti, bez Spring auto-konfiguracije.
-
-| Aspekt | Ocena |
-|--------|-------|
-| Java bytecode | ✅ Java 17 target |
-| Tranzitivne zavisnosti | ✅ Nema (samo Lombok + Jackson) |
-| Održavanje | ⚠️ Nov modul u sc-* ekosistemu |
-| Reusability | ✅ Koristi ga i oci-backend i drugi Java 17 projekti |
-
----
-
-### 8.4 Uporedna tabela dependency strategija
-
-| Kriterijum | D-A: Plain HTTP (⭐) | D-B: Cross-compile | D-C: client-api modul |
-|------------|:--------------------:|:-------------------:|:---------------------:|
-| **Novih zavisnosti** | 0 | 2 (client + commons) | 1 (client-api) |
-| **Java version rizik** | ✅ Nema | ⚠️ Cross-compile | ✅ Nema |
-| **Spring Boot konflikt** | ✅ Nema | ⚠️ 3.5 vs 3.2 | ✅ Nema |
-| **Tranzitivne zavisnosti** | ✅ Nema novih | ❌ sc-commons | ✅ Nema |
-| **Održavanje DTO-ova** | ⚠️ Ručna kopija | ✅ Automatski | ✅ Automatski |
-| **ACK support** | ⚠️ Ručno | ✅ Ugrađen | ⚠️ Ručno |
-| **Složenost impl.** | ✅ Najniža | ⚠️ Srednja | ⚠️ Srednja |
-| **Rizik** | ✅ Najniži | ❌ Najviši | ⚠️ Srednji |
-| **Potrebna promena u sc-* | ❌ Ne | ✅ Da | ✅ Da |
-
----
-
-## 9. Detaljan dizajn preporučenog pristupa
-
-Kombinacija: **Pristup C (Dual-mode Facade)** + **Strategija D-A (Plain HTTP RestClient)**
-
-### 9.1 Nove klase u oci-library
-
-```
-oci-library/src/main/java/com/sistemisolutions/oci/lib/
-└── notification/
-    ├── NotificationFacade.java         ← Centralni facade (dual-mode)
-    ├── ScNotificationsClient.java      ← Plain HTTP klijent za sc-notifications
-    ├── dto/
-    │   ├── ScSendEmailRequest.java     ← Request DTO
-    │   └── ScNotificationResponse.java ← Response DTO
-    └── mapper/
-        └── NotificationMapper.java     ← OCI SendEmailRequestDto → ScSendEmailRequest
-```
-
-### 9.2 NotificationFacade — centralna klasa
+### 8.4 NotificationFacade
 
 ```java
 @Slf4j
@@ -532,7 +476,7 @@ oci-library/src/main/java/com/sistemisolutions/oci/lib/
 public class NotificationFacade {
 
    private final MailerService mailerService;
-   private final Optional<ScNotificationsClient> scNotifClient;
+   private final Optional<ScNotificationsClient> scClient;
 
    @Value("${email.notification.mode:legacy}")
    private String notificationMode;
@@ -557,187 +501,97 @@ public class NotificationFacade {
 
    private EmailSendResponseDto sendViaScNotifications(
          SendEmailRequestDto request, boolean html) {
-      ScNotificationsClient client = scNotifClient.orElseThrow(() ->
+      ScNotificationsClient client = scClient.orElseThrow(() ->
          new IllegalStateException(
-            "email.notification.mode=sc-notifications but " +
-            "notification.sc.base-url is not configured"));
+            "email.notification.mode=sc-notifications ali " +
+            "notification.sc.base-url nije konfigurisano"));
 
-      ScSendEmailRequest scRequest = NotificationMapper.toScRequest(request, html);
-      ScNotificationResponse response = client.sendEmail(scRequest);
+      ScSendEmailRequest scReq = NotificationMapper.toScRequest(request, html);
+      ScNotificationResponse resp = client.sendEmail(scReq);
 
       log.info("SC-Notification | uuid={} | status={} | to={}",
-         response.getNotificationUuid(), response.getStatus(), request.getTo());
+         resp.getNotificationUuid(), resp.getStatus(), request.getTo());
 
       return EmailSendResponseDto.builder()
          .emailSentTo(request.getTo())
          .emailProvider("sc-notifications")
-         .error("REJECTED".equals(response.getStatus()))
+         .error("REJECTED".equals(resp.getStatus()))
          .build();
    }
 }
 ```
 
-### 9.3 ScNotificationsClient — plain HTTP
+### 8.5 Konfiguracija po profilima
 
-```java
-@Slf4j
-@Component
-@ConditionalOnProperty(name = "notification.sc.base-url")
-public class ScNotificationsClient {
-
-   private final RestClient restClient;
-
-   public ScNotificationsClient(
-         @Value("${notification.sc.base-url}") String baseUrl) {
-      this.restClient = RestClient.builder()
-         .baseUrl(baseUrl)
-         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-         .build();
-   }
-
-   public ScNotificationResponse sendEmail(ScSendEmailRequest request) {
-      return restClient.post()
-         .uri("/api/v1/notifications/email")
-         .body(request)
-         .retrieve()
-         .body(ScNotificationResponse.class);
-   }
-}
-```
-
-> **Napomena:** `ScNotificationsClient` bean se kreira **samo** kad `notification.sc.base-url` postoji u konfiguraciji. Na legacy okruženjima — bean ne postoji, nema greške.
-
-### 9.4 Dijagram toka odlučivanja
-
-```
-                    ┌──────────────────────┐
-                    │  Servis poziva       │
-                    │  facade.sendEmail()  │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                  ┌────────────────────────┐
-                  │ email.notification     │
-                  │ .mode = ?              │
-                  └────────┬───────────────┘
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-              ▼                         ▼
-     ┌────────────────┐      ┌──────────────────┐
-     │ "legacy"       │      │ "sc-notifications"│
-     │ (default)      │      │                    │
-     └───────┬────────┘      └────────┬───────────┘
-             │                        │
-             ▼                        ▼
-  ┌────────────────────┐   ┌────────────────────────┐
-  │ mailerService      │   │ ScNotificationsClient  │
-  │ .sendTextEmail()   │   │ .sendEmail()           │
-  │                    │   │                         │
-  │ SmtpMailerSvc ili  │   │ HTTP POST ka            │
-  │ SendGridMailerSvc  │   │ sc-notifications:8091   │
-  │ (zavisi od         │   │                         │
-  │ email.provider)    │   │ → Gateway → Dispatcher  │
-  └────────┬───────────┘   │ → Channel → Provider    │
-           │               │ → ACK                   │
-           ▼               └────────────┬─────────────┘
-     ┌───────────┐                     │
-     │ SMTP ili  │                     ▼
-     │ SendGrid  │           ┌──────────────────┐
-     │ (direktno)│           │ Failover chain:  │
-     └───────────┘           │ Loopia → SGrid   │
-                             │ → Mailtrap → ... │
-                             └──────────────────┘
-```
-
-### 9.5 Konfiguracija po profilima
-
-#### application.properties (BEZ PROMENA)
+**application.properties — BEZ PROMENA:**
 ```properties
 email.provider=smtp
 support.email=${NO_REPLY_EMAIL}
 spring.sendgrid.api-key=${SENDGRID_API_KEY}
 app.smtp.mail.host=${SMTP_HOST}
-# ... ostali SMTP properties — bez promena
+# ... ostalo bez promena
 ```
 
-#### application-local.properties (DODATI)
+**application-local.properties — DODATI:**
 ```properties
-# --- SC Notifications (novi) ---
 email.notification.mode=sc-notifications
 notification.sc.base-url=http://localhost:8091
 ```
 
-#### application-dev.properties (za SC okruženja — DODATI)
+**application-prod.properties — BEZ PROMENA:**
 ```properties
-email.notification.mode=sc-notifications
-notification.sc.base-url=http://sc-notifications:8081
+# email.notification.mode ne postoji → default "legacy"
 ```
 
-#### application-prod.properties (BEZ PROMENA)
-```properties
-# email.notification.mode NE POSTOJI → default "legacy"
-# Sve radi identično kao pre refaktora
-```
+### 8.6 Refaktor poziva u servisima
 
-### 9.6 Refaktor poziva u servisima
-
-**Pre:**
 ```java
+// Pre:
 private final MailerService mailerService;
 mailerService.sendHtmlEmail(new SendEmailRequestDto(from, to, subject, body));
-```
 
-**Posle:**
-```java
+// Posle:
 private final NotificationFacade notificationFacade;
 notificationFacade.sendHtmlEmail(new SendEmailRequestDto(from, to, subject, body));
 ```
 
-> Minimalna promena — samo zamena inject-a. Potpis metode ostaje isti.
+> Minimalna promena — zamena inject-a. Potpis metode isti. Stari `MailerService` se NE BRIŠE.
 
 ---
 
-## 10. Strategija baze podataka
+## 9. Strategija baze podataka
 
-oci-backend ostaje na MySQL. sc-notifications dobija zasebnu PostgreSQL instancu.
+oci-backend ostaje na MySQL. sc-notifications dobija **zasebnu** PostgreSQL instancu.
 
 ```
 ┌─────────────┐     ┌──────────────────┐
 │  MySQL 8.0  │     │ PostgreSQL 17.6  │
 │  (ociapp)   │     │ (sc_notifications)│
-│             │     │                   │
 │  oci-api    │     │  sc-notifications │
 │  oci-monitor│     │                   │
 └─────────────┘     └──────────────────┘
-   postojeće             samo na SC
-   bez promena           okruženjima
+   bez promena       samo na SC okruženjima
 ```
-
-Nema rizika od cross-kontaminacije. Nezavisni lifecycle-ovi. Legacy okruženja ne trebaju PostgreSQL.
 
 ---
 
-## 11. Docker konfiguracija
+## 10. Docker konfiguracija
 
-### 11.1 Izmene u `docker-compose-local.yml`
-
-Dodati sc-notifications stack pored postojećeg MySQL-a:
+### 10.1 docker-compose-local.yml — dodati SC stack
 
 ```yaml
 services:
-  # --- Postojeći (BEZ PROMENA) ---
+  # Postojeći (BEZ PROMENA)
   db:
     image: "mysql/mysql-server:latest"
     # ... identično kao sada
 
-  # --- Novi: sc-notifications stack ---
+  # Novi: sc-notifications stack
   sc-notifications:
     build:
       context: ../sc-notifications
       dockerfile: Dockerfile
     container_name: sc-notifications
-    restart: always
     ports:
       - "8091:8081"
     environment:
@@ -751,15 +605,12 @@ services:
       - SPRING_RABBITMQ_PASSWORD=topsecret
       - MAILPIT_SMTP_PORT=1025
     depends_on:
-      sc-notifications-db:
-        condition: service_healthy
-      sc-notifications-rabbitmq:
-        condition: service_healthy
+      sc-notifications-db: { condition: service_healthy }
+      sc-notifications-rabbitmq: { condition: service_healthy }
 
   sc-notifications-db:
     image: "postgres:17.6-alpine"
     container_name: sc-notifications-db
-    restart: always
     ports:
       - "5432:5432"
     environment:
@@ -778,7 +629,6 @@ services:
     image: rabbitmq:4.1.4-management-alpine
     container_name: sc-notifications-rabbitmq
     hostname: sc-notifications-rabbitmq
-    restart: always
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -796,7 +646,6 @@ services:
   sc-notifications-mailpit:
     image: ghcr.io/axllent/mailpit:latest
     container_name: sc-notifications-mailpit
-    restart: always
     ports:
       - "13081:1025"
       - "14081:8025"
@@ -813,122 +662,89 @@ volumes:
   sc_notifications_rabbitmq_data:
 ```
 
-### 11.2 Izmene u `docker-compose-cloud-dev.yml` (samo SC okruženja)
+### 10.2 docker-compose-cloud-dev.yml (samo SC okruženja)
 
-Dodati `sc-notifications`, `sc-notifications-db`, `sc-notifications-rabbitmq` servise. Mailpit nije potreban — koriste se pravi SMTP provajderi.
-
-Dodatni env vars za `api` i `monitor` (**samo na SC okruženjima**):
+Dodati `sc-notifications`, `sc-notifications-db`, `sc-notifications-rabbitmq`. Dodatni env vars za `api` i `monitor`:
 
 ```yaml
-api:
-  environment:
-    # ... sve postojeće OSTAJE ...
-    - "EMAIL_NOTIFICATION_MODE=sc-notifications"
-    - "NOTIFICATION_SC_BASE_URL=http://sc-notifications:8081"
-
-monitor:
-  environment:
-    # ... sve postojeće OSTAJE ...
-    - "EMAIL_NOTIFICATION_MODE=sc-notifications"
-    - "NOTIFICATION_SC_BASE_URL=http://sc-notifications:8081"
+- "EMAIL_NOTIFICATION_MODE=sc-notifications"
+- "NOTIFICATION_SC_BASE_URL=http://sc-notifications:8081"
 ```
 
-> Na produkcijama klijenata — compose fajl **ne sadrži** sc-notifications servise, niti `EMAIL_NOTIFICATION_MODE` env var. Identično kao pre.
+> Produkcije klijenata: compose fajl **ne sadrži** SC servise, niti nove env vars. Identično kao pre.
 
 ---
 
-## 12. Lokalno razvojno okruženje
+## 11. Lokalno i Dev/Cloud okruženje
 
-### 12.1 sc-notifications iz IntelliJ (⭐ Preporuka)
+### Lokalno — IntelliJ (⭐ Preporuka)
 
 ```
 ┌─ IntelliJ IDEA ────────────────────────────────────┐
-│                                                     │
-│  Run: oci-api (port 8080, profile: local)          │
-│  Run: oci-monitor (port 8081, profile: local)      │
-│  Run: sc-notifications (port 8091, profile: local) │
-│                                                     │
+│  Run: oci-api (8080)  oci-monitor (8081)           │
+│  Run: sc-notifications (8091)                      │
 └─────────────────────────────────────────────────────┘
          │              │              │
-         ▼              ▼              ▼
-┌─ Docker (docker-compose-local.yml) ────────────────┐
-│                                                     │
-│  MySQL (3306)        — oci-backend                 │
-│  PostgreSQL (5432)   — sc-notifications            │
-│  RabbitMQ (5672/15672) — sc-notifications           │
-│  Mailpit (13081/14081) — email testing             │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+┌─ Docker ───────────────────────────────────────────┐
+│  MySQL(3306) PostgreSQL(5432) RabbitMQ(5672)       │
+│  Mailpit(13081 SMTP / 14081 UI)                    │
+└────────────────────────────────────────────────────┘
 ```
 
-### 12.2 Legacy mod (testiranje backward compat.)
-
-Zakomentarisati `email.notification.mode` u `application-local.properties`:
-```properties
-# email.notification.mode=sc-notifications  ← zakomentarisano
-```
-→ Sistem automatski koristi legacy SMTP/SendGrid. Docker: samo `db` servis.
-
----
-
-## 13. Dev/Cloud okruženje
-
-### SC okruženje
+### Dev/Cloud — SC okruženje
 
 ```
-┌─ Docker Host (dev) ───────────────────────────────────────────┐
-│  nginx  │  ui  │  api  │  monitor  │  db(MySQL)  ← postojeće │
-│                    │          │                                 │
-│                    └────┬─────┘  email.notification.mode       │
-│                         │        = sc-notifications             │
-│                         ▼                                      │
-│               sc-notifications (:8091) ← novo                  │
-│                    │        │                                   │
-│              PostgreSQL  RabbitMQ    ← novo                    │
-└────────────────────────────────────────────────────────────────┘
+┌─ Docker Host ──────────────────────────────────────────────┐
+│  nginx │ ui │ api │ monitor │ db(MySQL)   ← postojeće     │
+│                │       │                                    │
+│                └───┬───┘ mode=sc-notifications              │
+│                    ▼                                        │
+│          sc-notifications(:8091)          ← novo           │
+│             │       │                                       │
+│       PostgreSQL  RabbitMQ                ← novo           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Legacy okruženje (produkcije klijenata)
+### Dev/Cloud — Legacy okruženje (produkcije klijenata)
 
 ```
-┌─ Docker Host (prod) ──────────────────────────────────────────┐
-│  nginx  │  ui  │  api  │  monitor  │  db(MySQL)               │
-│                    │          │                                 │
-│                    └────┬─────┘  email.notification.mode       │
-│                         │        = legacy (default)            │
-│                         ▼                                      │
-│               SMTP / SendGrid (direktno)                       │
-│                                                                │
-│  NEMA SC-NOTIFICATIONS, NEMA PG, NEMA RABBITMQ               │
-│  SVE RADI IDENTIČNO KAO PRE REFAKTORA                        │
-└────────────────────────────────────────────────────────────────┘
+┌─ Docker Host ──────────────────────────────────────────────┐
+│  nginx │ ui │ api │ monitor │ db(MySQL)                    │
+│                │       │                                    │
+│                └───┬───┘ mode=legacy (default)             │
+│                    ▼                                        │
+│              SMTP / SendGrid (direktno)                    │
+│                                                             │
+│  NEMA SC-NOTIFICATIONS, NEMA PG, NEMA RABBITMQ            │
+│  IDENTIČNO KAO PRE REFAKTORA                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 14. Plan implementacije
+## 12. Plan implementacije
 
 ### Faza 1: Infrastruktura (1-2 dana)
 
 | # | Task | Lokacija |
 |---|------|----------|
 | 1 | Kreirati Dockerfile za sc-notifications | `sc-notifications/Dockerfile` |
-| 2 | Dodati sc-notifications stack u `docker-compose-local.yml` | `oci-backend/docker-compose-local.yml` |
+| 2 | Dodati SC stack u `docker-compose-local.yml` | `oci-backend/docker-compose-local.yml` |
 
 ### Faza 2: Kod u oci-library (2-3 dana)
 
 | # | Task | Lokacija |
 |---|------|----------|
-| 3 | Kreirati `ScSendEmailRequest` DTO | `oci-library/.../notification/dto/` |
-| 4 | Kreirati `ScNotificationResponse` DTO | `oci-library/.../notification/dto/` |
-| 5 | Kreirati `ScNotificationsClient` (plain HTTP) | `oci-library/.../notification/` |
-| 6 | Kreirati `NotificationMapper` | `oci-library/.../notification/mapper/` |
-| 7 | Kreirati `NotificationFacade` (dual-mode) | `oci-library/.../notification/` |
+| 3 | `ScSendEmailRequest` DTO | `oci-library/.../notification/dto/` |
+| 4 | `ScNotificationResponse` DTO | `oci-library/.../notification/dto/` |
+| 5 | `ScNotificationsClient` (plain HTTP) | `oci-library/.../notification/` |
+| 6 | `NotificationMapper` | `oci-library/.../notification/mapper/` |
+| 7 | `NotificationFacade` (dual-mode) | `oci-library/.../notification/` |
 
 ### Faza 3: Refaktor servisa (1-2 dana)
 
-| # | Task | Lokacija |
-|---|------|----------|
+| # | Task | Modul |
+|---|------|-------|
 | 8 | `UserRegistrationService` → `NotificationFacade` | oci-api |
 | 9 | `UsersService` → `NotificationFacade` | oci-api |
 | 10 | `BudgetNotificationService` → `NotificationFacade` | oci-monitor |
@@ -938,132 +754,119 @@ Zakomentarisati `email.notification.mode` u `application-local.properties`:
 | 14 | `CostReportsService` → `NotificationFacade` | oci-monitor |
 | 15 | `MetricsNotificationEventListener` → `NotificationFacade` | oci-monitor |
 
-### Faza 4: Konfiguracija (0.5 dana)
+### Faza 4: Konfiguracija + Test (1-2 dana)
 
-| # | Task | Lokacija |
-|---|------|----------|
-| 16 | Dodati `email.notification.mode` + `notification.sc.base-url` | `application-local.properties` (oba) |
+| # | Task |
+|---|------|
+| 16 | Dodati `email.notification.mode` + `notification.sc.base-url` u `application-local.properties` |
+| 17 | Testirati SC mod — Mailpit UI http://localhost:14081 |
+| 18 | Testirati legacy mod — zakomentarisati `email.notification.mode` |
+| 19 | `mvn test` — verifikovati stare testove |
 
-### Faza 5: Testiranje (1-2 dana)
+### Faza 5: Deploy (1 dan)
 
-| # | Task | Opis |
-|---|------|------|
-| 17 | Testirati SC mod lokalno | Mailpit UI: http://localhost:14081 |
-| 18 | Testirati legacy mod lokalno | Zakomentarisati `email.notification.mode` |
-| 19 | Proveriti da stari testovi prolaze | `mvn test` |
-
-### Faza 6: Deploy (1 dan)
-
-| # | Task | Opis |
-|---|------|------|
-| 20 | Deploy na dev sa SC konfiguracijom | Verifikovati email tokove |
-| 21 | Deploy isti JAR na produkciju **bez promena** env vars | Verifikovati legacy mod |
-
-> **Napomena:** `MailerService`, `SmtpMailerService`, `SendGridMailerService`, `EmailConfig` se **NE BRIŠU**.
+| # | Task |
+|---|------|
+| 20 | Deploy na dev sa SC konfiguracijom |
+| 21 | Deploy isti JAR na produkciju **bez promena** env vars — verifikovati legacy |
 
 ---
 
-## 15. Obrazloženje preporuke
-
-**Preporuka: Pristup C (Dual-mode Facade) + Strategija D-A (Plain HTTP RestClient) ⭐**
+## 13. Obrazloženje preporuke
 
 ### Zašto Dual-mode Facade?
 
-1. **Non-destructive deployment** — deploy bez promene konfiguracije = identično ponašanje. Apsolutni prioritet jer je aplikacija na više produkcija.
-2. **Jedan codebase** — isti JAR radi na svim okruženjima, razlika je samo u `email.notification.mode` property-ju.
-3. **Stari kod ostaje** — patching legacy email toka ne zahteva poseban branch.
-4. **Postepeni rollout** — jedno po jedno okruženje prelazi na SC, sa instant rollback opcijom.
+1. **Non-destructive** — deploy bez promene config = identično ponašanje
+2. **Jedan codebase** — isti JAR na svim okruženjima
+3. **Stari kod ostaje** — patching legacy toka ne zahteva poseban branch
+4. **Postepeni rollout** — po jedno okruženje prelazi na SC, instant rollback
 
-### Zašto Plain HTTP RestClient (a ne sc-notifications-client)?
+### Zašto Plain HTTP (a ne sc-notifications-client)?
 
-1. **Java 25 bytecode bloker** — sc-notifications-client je kompajliran za Java 25 (`major version: 69`). oci-backend JVM je Java 17 (`max version: 61`). **`UnsupportedClassVersionError`** bi pao pri prvom pokušaju učitavanja klase.
-2. **Spring Boot version mismatch** — sc-notifications-client dolazi sa Spring Boot 3.5.11 auto-konfiguracijom, oci-backend koristi 3.2.1. Nepredvidivi runtime problemi.
-3. **Tranzitivne zavisnosti** — sc-commons donosi Hibernate 6.6.x, QueryDSL 5.1, MapStruct 1.6 — sve u konfliktu sa oci-backend verzijama.
-4. **Nula rizika sa plain HTTP** — `RestClient` je deo Spring Boot 3.2.1 koji oci-backend već koristi. Nema novih zavisnosti, nema version konflikta, nema bytecode problema.
-5. **API je jednostavan** — sc-notifications ima 3 REST endpointa. Napisati HTTP klijent za 3 POST poziva je trivijalno.
+1. **Java 25 bloker** — bytecode version 69 na Java 17 JVM = `UnsupportedClassVersionError`
+2. **Spring Boot mismatch** — auto-config pisana za 3.5.11 na runtime-u 3.2.1
+3. **Tranzitivne zavisnosti** — sc-commons donosi nekompatibilne verzije
+4. **Nula rizika sa plain HTTP** — `RestClient` je deo Spring Boot 3.2.1, isti JSON format, isti endpoint
+5. **API je jednostavan** — 1 POST endpoint za email, trivijalan za implementaciju
 
 ### Evolucioni put
 
 ```
-  Danas               Faza 1                  Dugoročno
-  ──────              ──────                  ──────────
+  Danas               Sada                   Kad OCI pređe na Java 25
+  ──────              ──────                  ─────────────────────────
 
   MailerService  →  NotificationFacade   →  NotificationFacade
   (direktno)        ├─ legacy (default)      └─ sc-notifications (jedini)
                     └─ SC (plain HTTP)
-                                              Brisanje:
-                                              - MailerService, SmtpSvc, SendGridSvc
-                                              - legacy grana u Facade
-                                              - Opciono: zamena plain HTTP
-                                                sa sc-notifications-client
-                                                (kad oci-backend pređe na Java 25)
+                                              Opciono:
+                                              - Zamena plain HTTP sa
+                                                sc-notifications-client
+                                              - Brisanje legacy grane
 ```
 
 ---
 
-## 16. Post-implementacija
+## 14. Post-implementacija
 
 ### Manual za operatere
 
 Kreirati `docs/manuals/sc-notifications-integration.md`:
 
 1. **Aktivacija SC moda** — koji env vars dodati
-2. **Deaktivacija / Rollback** — ukloniti `EMAIL_NOTIFICATION_MODE` ili postaviti na `legacy`
+2. **Deaktivacija / Rollback** — ukloniti `EMAIL_NOTIFICATION_MODE`
 3. **Konfiguracija provajdera** u sc-notifications
-4. **Monitoring** — RabbitMQ Management UI, healthcheck endpoint-i
+4. **Monitoring** — RabbitMQ UI, healthcheck
 5. **Troubleshooting** — česti problemi
-6. **Mailpit** — korišćenje za lokalno testiranje (UI: http://localhost:14081)
+6. **Mailpit** — lokalno testiranje (http://localhost:14081)
 
 ### Dijagram konačnog stanja (SC okruženje)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     SC okruženje                                        │
-│                                                                         │
-│  ┌──────────┐  ┌──────────────┐                                        │
-│  │  oci-api │  │  oci-monitor │   NotificationFacade                   │
-│  │  :8080   │  │  :8081       │   mode = sc-notifications              │
-│  └────┬─────┘  └──────┬───────┘                                        │
-│       │   HTTP POST    │   HTTP POST   ScNotificationsClient           │
-│       └───────┬────────┘              (plain RestClient, Java 17)      │
-│               ▼                                                         │
-│    ┌────────────────────────────┐                                       │
-│    │     sc-notifications      │   Gateway → Dispatcher → Provider     │
-│    │     :8091                 │   ├─ smtp_loopia (⭐1)                │
-│    │                           │   ├─ api_sendgrid (⭐2)              │
-│    │                           │   └─ api_mailtrap (⭐3)              │
-│    └──────┬────────────────────┘                                       │
-│    ┌──────┼──────────────┐                                              │
-│    ▼      ▼              ▼                                              │
-│  ┌────┐ ┌──────────┐ ┌───────────┐                                     │
-│  │ PG │ │ RabbitMQ │ │  Mailpit  │                                     │
-│  └────┘ └──────────┘ └───────────┘                                     │
-│                                                                         │
-│  ┌──────┐  oci-backend baza (bez promena)                              │
-│  │MySQL │                                                               │
-│  └──────┘                                                               │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                        SC okruženje                                   │
+│                                                                       │
+│  ┌──────────┐  ┌──────────────┐   NotificationFacade (oci-library)   │
+│  │  oci-api │  │  oci-monitor │   mode = sc-notifications            │
+│  │  :8080   │  │  :8081       │                                      │
+│  └────┬─────┘  └──────┬───────┘   ScNotificationsClient              │
+│       │  HTTP POST     │          (naš kod, Java 17, plain RestClient)│
+│       └───────┬────────┘                                              │
+│               ▼                                                       │
+│    ┌────────────────────────┐                                         │
+│    │   sc-notifications    │   Gateway → Dispatcher → Provider       │
+│    │   :8091 (Java 25)     │   ├─ smtp_loopia (⭐1)                  │
+│    │                       │   ├─ api_sendgrid (⭐2)                 │
+│    │                       │   └─ api_mailtrap (⭐3)                 │
+│    └──────┬────────────────┘                                         │
+│    ┌──────┼──────────────┐                                            │
+│    ▼      ▼              ▼                                            │
+│  ┌────┐ ┌──────────┐ ┌───────────┐                                   │
+│  │ PG │ │ RabbitMQ │ │  Mailpit  │                                   │
+│  └────┘ └──────────┘ └───────────┘                                   │
+│  ┌──────┐                                                             │
+│  │MySQL │  oci-backend baza (bez promena)                            │
+│  └──────┘                                                             │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Dijagram konačnog stanja (Legacy okruženje)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                  Legacy okruženje                                        │
-│                                                                         │
-│  ┌──────────┐  ┌──────────────┐                                        │
-│  │  oci-api │  │  oci-monitor │   NotificationFacade                   │
-│  │  :8080   │  │  :8081       │   mode = legacy (default)              │
-│  └────┬─────┘  └──────┬───────┘                                        │
-│       └───────┬────────┘          MailerService (postojeći kod)        │
-│               ▼                                                         │
-│    ┌────────────────────────────┐                                       │
-│    │   SMTP / SendGrid         │                                       │
-│    │   (direktan poziv)        │                                       │
-│    └────────────────────────────┘                                       │
-│                                                                         │
-│  ┌──────┐                                                               │
-│  │MySQL │  NEMA SC-NOTIFICATIONS, NEMA PG, NEMA RABBITMQ              │
-│  └──────┘  SVE RADI IDENTIČNO KAO PRE REFAKTORA                       │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                     Legacy okruženje                                   │
+│                                                                       │
+│  ┌──────────┐  ┌──────────────┐   NotificationFacade (oci-library)   │
+│  │  oci-api │  │  oci-monitor │   mode = legacy (default)            │
+│  │  :8080   │  │  :8081       │                                      │
+│  └────┬─────┘  └──────┬───────┘   MailerService (postojeći kod)      │
+│       └───────┬────────┘                                              │
+│               ▼                                                       │
+│    ┌────────────────────────┐                                         │
+│    │   SMTP / SendGrid     │                                         │
+│    │   (direktan poziv)    │                                         │
+│    └────────────────────────┘                                         │
+│  ┌──────┐                                                             │
+│  │MySQL │  NEMA SC-NOTIFICATIONS, PG, RABBITMQ                      │
+│  └──────┘  IDENTIČNO KAO PRE REFAKTORA                              │
+└───────────────────────────────────────────────────────────────────────┘
 ```
