@@ -69,7 +69,7 @@
 **Parcijalno implementirano:**
 - Penalty polja postoje u formi ali se ne prikazuju u izveštajima
 - Tag filter criteria polje postoji ali nije potpuno integrisano
-- Cron expression — nema UI builder/validator
+- ~~Cron expression — nema UI builder/validator~~ ✅ Implementirano (2026-03-11): CronExpressionBuilder sa presetima, field selektorima, human-readable opisom
 
 **Nije implementirano:**
 - ~~Delete SLA Definition — nema dugme za brisanje~~ ⚠️ Backend nema delete endpoint, ostaje TODO
@@ -167,7 +167,7 @@ Neispunjeno:        0/19 (0%)
 | G-11 | ~~Advanced filtering~~ | Frontend | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Client-side filtering na SlaListPage (search by name, status, period type) i SlaReportScheduleListPage (search by name, status, frequency). useMemo + Clear filters dugme. Integrisano sa pagination. |
 | G-12 | ~~Manual recomputation improvements~~ | ~~Backend~~ | ~~3-4h~~ | ✅ **UI IMPLEMENTIRAN** (2026-03-11): Poboljšan trigger dialog — date range inputi (periodStart/periodEnd), force recompute checkbox, default period po periodType, detaljni prikaz rezultata. Dry-run/async batch ostaje za Phase 2. |
 | G-12b | Manual recomputation Phase 2 | Backend | 8-12h | **BACKLOG**: Backend dry-run (`dryRun` field u DTO + skip save logika), async batch job (`sla_batch_job` tabela + `@Async` servis + polling endpoint), progress tracking, cancellation support. Ref: `MANUAL-SLA-RECOMPUTATION-ANALYSIS.md` Pristup 1 komplet + Pristup 2. |
-| G-13 | Cron expression builder | Frontend | 4h | Korisnici moraju ručno da unesu cron expression za custom schedule. |
+| G-13 | ~~Cron expression builder~~ | ~~Frontend~~ | ~~4h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Reusable `CronExpressionBuilder` komponenta sa 6 preset-a, 5 field selektora, human-readable opisom, manual input toggle. Integrisano u SlaReportScheduleFormPage. |
 | G-14 | SLA istorijat timeline | Frontend | 6-8h | Pregled SLA rezultata kroz vreme kao timeline/trend chart. |
 | G-15 | Stored Report management UI | Frontend | 4-6h | Pregled, preuzimanje i arhiviranje generisanih izveštaja. |
 
