@@ -17,6 +17,7 @@
 | G-09 | SecurityContext za audit username | 2026-03-11 | Zamenjeno 6x hardkodirano `"system"` sa `AuthHelper.getPrincipalUsername("system")` u 3 kontrolera: SlaExcludedDowntimeController (create, update), SlaReportScheduleController (create, update, updateStatus), StoredSlaReportController (archive). |
 | G-10 | Pagination na listama | 2026-03-11 | Reusable `Pagination` komponenta + `usePagination` hook (client-side). Integrisano u SlaListPage i SlaReportScheduleListPage. Default 10 items/page, page size selector (10/20/50), first/prev/next/last navigacija. |
 | G-11 | Advanced filtering | 2026-03-11 | Client-side filtering sa `useMemo`. SlaListPage: search by name + status (All/Active/Inactive) + period type. SlaReportScheduleListPage: search by name + status + frequency. Clear filters dugme. Integrisano sa pagination (filtrirana lista → paginated). |
+| G-12 | Manual recomputation improvements | 2026-03-11 | Poboljšan trigger dialog u SlaListPage: date range inputi (periodStart/periodEnd), force recompute checkbox, auto-default na početak tekućeg perioda po periodType, detaljni prikaz rezultata (status, compliance%, resultId, message). Frontend-only — koristi postojeća backend polja. |
 
 ---
 
@@ -59,7 +60,7 @@
 | G-14 | SLA Timeline chart | 6-8h | SREDNJI | TODO |
 | G-10 | ~~Pagination na listama~~ | ~~4h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-11 | ~~Advanced filtering~~ | ~~4-6h~~ | ~~NIZAK~~ | ✅ DONE |
-| G-12 | Manual recomputation improvements | 3-4h | NIZAK | TODO |
+| G-12 | ~~Manual recomputation improvements~~ | ~~3-4h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-13 | Cron expression builder | 4h | NIZAK | TODO |
 
 ---

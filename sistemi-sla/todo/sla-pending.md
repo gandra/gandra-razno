@@ -41,7 +41,7 @@
 - SLA Notification Service — email radi, webhook TODO
 - ~~SLA Report Service — on-demand generisanje radi, ali `generateReport()` nema authorization check~~ ✅ Implementirano (2026-03-11)
 - ~~Stored SLA Report — entity postoji, PDF/CSV retrieval nije implementiran (TODO)~~ ✅ Implementirano (2026-03-11)
-- Manual computation trigger — endpoint postoji, ali bez dry-run, batch, progress tracking
+- ~~Manual computation trigger — endpoint postoji, ali bez dry-run, batch, progress tracking~~ ✅ UI poboljšan (2026-03-11): date range, force recompute, detaljni rezultati. Dry-run/batch/progress ostaje za Phase 2.
 
 **Nije implementirano:**
 - ~~SLA Report Scheduler~~ ✅ Implementirano (2026-03-11)
@@ -165,7 +165,7 @@ Neispunjeno:        0/19 (0%)
 |---|-----|-----------|--------|------|
 | G-10 | ~~Pagination na listama~~ | Frontend | ~~4h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Reusable `Pagination` komponenta + `usePagination` hook. Client-side pagination na SlaListPage i SlaReportScheduleListPage (10 items/page, page size selector). |
 | G-11 | ~~Advanced filtering~~ | Frontend | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Client-side filtering na SlaListPage (search by name, status, period type) i SlaReportScheduleListPage (search by name, status, frequency). useMemo + Clear filters dugme. Integrisano sa pagination. |
-| G-12 | Manual recomputation improvements | Backend | 3-4h | Dry-run, date range podrška, progress tracking, cancellation. |
+| G-12 | ~~Manual recomputation improvements~~ | ~~Backend~~ | ~~3-4h~~ | ✅ **UI IMPLEMENTIRAN** (2026-03-11): Poboljšan trigger dialog — date range inputi (periodStart/periodEnd), force recompute checkbox, default period po periodType, detaljni prikaz rezultata. Dry-run/async batch ostaje za Phase 2. |
 | G-13 | Cron expression builder | Frontend | 4h | Korisnici moraju ručno da unesu cron expression za custom schedule. |
 | G-14 | SLA istorijat timeline | Frontend | 6-8h | Pregled SLA rezultata kroz vreme kao timeline/trend chart. |
 | G-15 | Stored Report management UI | Frontend | 4-6h | Pregled, preuzimanje i arhiviranje generisanih izveštaja. |
@@ -238,7 +238,7 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 | SLA_EXCLUDED_DOWNTIME_IMPLEMENTATION.md | Maintenance windows | Full CRUD + overlap validacija | ✅ **Implementirano** — 100% kompletno, backend + frontend |
 | TRANSACTION-BOUNDARIES-ANALYSIS.md | Race condition | @TransactionalEventListener(AFTER_COMMIT) | ✅ **Implementirano** — SlaBreachDetectionService koristi AFTER_COMMIT |
 | WEBHOOK-NOTIFICATIONS-ANALYSIS.md | Webhook podrška | Phase 1 (simple POST + HMAC) | ❌ **Nije implementirano** — Komentarisano u kodu |
-| MANUAL-SLA-RECOMPUTATION-ANALYSIS.md | Manual recomputation | Phase 1 (dry-run + range) + Phase 2 (async batch) | ⚠️ **Basic trigger** postoji, napredne funkcije nedostaju |
+| MANUAL-SLA-RECOMPUTATION-ANALYSIS.md | Manual recomputation | Phase 1 (dry-run + range) + Phase 2 (async batch) | ⚠️ **UI poboljšan** (2026-03-11): date range, force recompute, detaljni rezultati. Dry-run/async batch ostaje za Phase 2. |
 
 ### 5.2 Scorecard
 
