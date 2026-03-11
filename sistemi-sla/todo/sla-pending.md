@@ -46,7 +46,7 @@
 **Nije implementirano:**
 - ~~SLA Report Scheduler~~ ✅ Implementirano (2026-03-11)
 - ~~Report Format Generation — PDF/CSV fajlovi se ne generišu (samo JSON)~~ ✅ On-demand PDF/CSV generisanje implementirano (2026-03-11)
-- Breach Management API — nema lifecycle (acknowledge/resolve), nema state machine, nema audit trail
+- ~~Breach Management API — nema lifecycle (acknowledge/resolve), nema state machine, nema audit trail~~ ✅ Breach Management API implementiran (2026-03-11): PATCH acknowledge/resolve + GET unacknowledged/unresolved
 - Webhook Notifications — komentarisano, nije implementirano
 - Email Retry Logic — jedan pokušaj, nema exponential backoff
 - Manual Report Trigger — endpoint postoji ali implementacija je TODO
@@ -153,7 +153,7 @@ Neispunjeno:        0/19 (0%)
 
 | # | Gap | Komponenta | Rizik | Effort | Opis |
 |---|-----|-----------|-------|--------|------|
-| G-05 | Breach Management lifecycle | Backend + UI | VISOK | 20-30h | Nema acknowledge/resolve API, nema state machine, nema audit trail, nema MTTA/MTTR kalkulacije. |
+| G-05 | ~~Breach Management lifecycle~~ | Backend + UI | ~~VISOK~~ | ~~20-30h~~ | ✅ **BACKEND IMPLEMENTIRAN** (2026-03-11): PATCH acknowledge/resolve endpointi, GET unacknowledged/unresolved, lifecycle polja u DTO, MapStruct mappings, repository queries. Frontend UI ostaje TODO. |
 | G-06 | Email retry mehanizam | Backend | VISOK | 4-6h | Jedan pokušaj slanja emaila. Mrežni problem = trajna izgubljena notifikacija. |
 | G-07 | Webhook notifikacije | Backend | SREDNJI | 2-3h (Phase 1) | Email-only. Nema integracije sa Slack, PagerDuty, ServiceNow, Mattermost. |
 | G-08 | Delete/Deactivate SLA u UI | Frontend | SREDNJI | 2h | Korisnik ne može obrisati ili deaktivirati SLA iz interfejsa. |
@@ -231,7 +231,7 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 | Dokument | Tema | Preporučeni pristup | Status implementacije |
 |----------|------|---------------------|----------------------|
 | PENALTY_CALCULATION_STATUS.md | Penalty kalkulacija | Phase 2.1 (fixed) + Phase 2.2 (formula) | ✅ **Implementirano** — PenaltyCalculationService + FormulaEvaluationService potpuno funkcionalni |
-| BREACH-RESOLUTION-API-ANALYSIS.md | Breach lifecycle | State Machine sa workflow-om (DETECTED→ACKNOWLEDGED→INVESTIGATING→RESOLVED) | ❌ **Nije implementirano** — Entity ima polja ali nema API ni UI |
+| BREACH-RESOLUTION-API-ANALYSIS.md | Breach lifecycle | State Machine sa workflow-om (DETECTED→ACKNOWLEDGED→INVESTIGATING→RESOLVED) | ⚠️ **Backend implementiran** (2026-03-11) — Simple PATCH endpointi (Pristup A). UI ostaje TODO. |
 | EMAIL-RETRY-LOGIC-ANALYSIS.md | Email retry | Scheduled cleanup + exponential backoff | ❌ **Nije implementirano** — Jedan pokušaj, nema retry |
 | MULTI-INSTANCE-SCHEDULER-ANALYSIS.md | Distributed locking | ShedLock (MySQL-based) | ✅ **Implementirano** — ShedLock sa `@SchedulerLock` na svim scheduled metodama |
 | SLA-REPORTS-SCHEDULER-ANALYSIS.md | Automatsko generisanje izveštaja | Entity + Scheduler + Email delivery | ✅ **Implementirano** (2026-03-11) — SlaReportScheduler + SlaReportSchedulerService + SlaReportGenerationService. Email delivery ostaje TODO. |

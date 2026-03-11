@@ -12,6 +12,7 @@
 | G-03 | Authorization check u SlaReportService | 2026-03-11 | `validateTenantAccess()` implementiran sa superadmin/sysadmin bypass + organization ID poređenje. Prati TenantService pattern. |
 | G-04 | Konfigurabilni monitoring interval | 2026-03-11 | `@Value("${sla.monitoring.interval-minutes:5}")` u `AvailabilityCalculatorService`. Uklonjen hardcoded `= 5` na 2 mesta. Property dodat u `application.properties`. |
 | G-02 | PDF/CSV generisanje za stored reports | 2026-03-11 | `SlaReportMapper.toReportDtoFromStoredReport()` + `StoredSlaReportManagementService.getReportPdf/Csv()`. On-demand generisanje iz stored podataka, bez file storage. Reuse SlaExportService (Thymeleaf PDF + Commons CSV). |
+| G-05 | Breach Management API (backend) | 2026-03-11 | Simple PATCH endpointi (Pristup A). `PATCH /breaches/{id}/acknowledge`, `PATCH /breaches/{id}/resolve`, `GET /breaches/unacknowledged`, `GET /breaches/unresolved`. Lifecycle polja u SlaBreachDto, MapStruct mappings, repository queries. Request DTOs u oci-library. Username iz SecurityContext. |
 
 ---
 
@@ -41,7 +42,7 @@
 
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
-| G-05 | Breach Management API (simple PATCH endpoints) | 4-6h | VISOK | TODO |
+| G-05 | ~~Breach Management API (simple PATCH endpoints)~~ | ~~4-6h~~ | ~~VISOK~~ | ✅ DONE |
 | G-05 | Breach Management UI | 4-6h | VISOK | TODO |
 | G-07 | Webhook notifikacije (simple POST + HMAC) | 2-3h | SREDNJI | TODO |
 
