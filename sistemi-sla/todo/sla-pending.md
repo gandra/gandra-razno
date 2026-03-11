@@ -76,7 +76,7 @@
 - ~~Deactivate SLA toggle — samo edit~~ ✅ Deactivate dugme sa confirmation dialogom implementirano (2026-03-11)
 - Breach Management UI — nema acknowledge/resolve interfejs
 - Stored Report pregled — nema UI za pregled generisanih izveštaja
-- Pagination — sve liste učitavaju sve podatke odjednom
+- ~~Pagination — sve liste učitavaju sve podatke odjednom~~ ✅ Client-side pagination implementirana (2026-03-11)
 - Search/Filter na listama — nema global search
 - User Profile page — endpoint definisan ali nije korišćen
 
@@ -163,7 +163,7 @@ Neispunjeno:        0/19 (0%)
 
 | # | Gap | Komponenta | Effort | Opis |
 |---|-----|-----------|--------|------|
-| G-10 | Pagination na listama | Frontend | 4h | Sve liste učitavaju sve podatke. Problem sa performansama na velikom broju SLA. |
+| G-10 | ~~Pagination na listama~~ | Frontend | ~~4h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Reusable `Pagination` komponenta + `usePagination` hook. Client-side pagination na SlaListPage i SlaReportScheduleListPage (10 items/page, page size selector). |
 | G-11 | Advanced filtering | Frontend | 4-6h | Nema search/filter po nazivu, statusu, periodu na SLA listi. |
 | G-12 | Manual recomputation improvements | Backend | 3-4h | Dry-run, date range podrška, progress tracking, cancellation. |
 | G-13 | Cron expression builder | Frontend | 4h | Korisnici moraju ručno da unesu cron expression za custom schedule. |

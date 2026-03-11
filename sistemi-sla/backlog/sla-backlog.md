@@ -15,6 +15,7 @@
 | G-05 | Breach Management API (backend) | 2026-03-11 | Simple PATCH endpointi (Pristup A). `PATCH /breaches/{id}/acknowledge`, `PATCH /breaches/{id}/resolve`, `GET /breaches/unacknowledged`, `GET /breaches/unresolved`. Lifecycle polja u SlaBreachDto, MapStruct mappings, repository queries. Request DTOs u oci-library. Username iz SecurityContext. |
 | G-08 | Deactivate SLA u UI | 2026-03-11 | Deactivate dugme u Actions koloni sa confirmation dialogom. Lista prebačena sa `getActiveDefinitions()` na `getAllDefinitions()` — prikazuje active + inactive. `slaDefinitionService.deactivate()` poziva PATCH endpoint. Optimistic UI update. |
 | G-09 | SecurityContext za audit username | 2026-03-11 | Zamenjeno 6x hardkodirano `"system"` sa `AuthHelper.getPrincipalUsername("system")` u 3 kontrolera: SlaExcludedDowntimeController (create, update), SlaReportScheduleController (create, update, updateStatus), StoredSlaReportController (archive). |
+| G-10 | Pagination na listama | 2026-03-11 | Reusable `Pagination` komponenta + `usePagination` hook (client-side). Integrisano u SlaListPage i SlaReportScheduleListPage. Default 10 items/page, page size selector (10/20/50), first/prev/next/last navigacija. |
 
 ---
 
@@ -55,7 +56,7 @@
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
 | G-14 | SLA Timeline chart | 6-8h | SREDNJI | TODO |
-| G-10 | Pagination na listama | 4h | NIZAK | TODO |
+| G-10 | ~~Pagination na listama~~ | ~~4h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-11 | Advanced filtering | 4-6h | NIZAK | TODO |
 | G-12 | Manual recomputation improvements | 3-4h | NIZAK | TODO |
 | G-13 | Cron expression builder | 4h | NIZAK | TODO |
