@@ -157,7 +157,7 @@ Neispunjeno:        0/19 (0%)
 | G-06 | Email retry mehanizam | Backend | VISOK | 4-6h | Jedan pokušaj slanja emaila. Mrežni problem = trajna izgubljena notifikacija. |
 | G-07 | Webhook notifikacije | Backend | SREDNJI | 2-3h (Phase 1) | Email-only. Nema integracije sa Slack, PagerDuty, ServiceNow, Mattermost. |
 | G-08 | ~~Delete/Deactivate SLA u UI~~ | Frontend | ~~SREDNJI~~ | ~~2h~~ | ✅ **DEACTIVATE IMPLEMENTIRAN** (2026-03-11): Deactivate dugme u Actions koloni + confirmation dialog. Lista prikazuje sve SLA-ove (active + inactive). Delete ostaje TODO (backend nema endpoint). |
-| G-09 | Audit username u ExcludedDowntime | Backend | NIZAK | 1h | `createdBy`/`updatedBy` hardcodirano na "system" umesto iz SecurityContext. |
+| G-09 | ~~Audit username u ExcludedDowntime~~ | Backend | ~~NIZAK~~ | ~~1h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `AuthHelper.getPrincipalUsername("system")` u 3 kontrolera (6 mesta): SlaExcludedDowntimeController, SlaReportScheduleController, StoredSlaReportController. |
 
 ### 3.3 Nice-to-have gapovi
 

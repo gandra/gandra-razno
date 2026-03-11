@@ -14,6 +14,7 @@
 | G-02 | PDF/CSV generisanje za stored reports | 2026-03-11 | `SlaReportMapper.toReportDtoFromStoredReport()` + `StoredSlaReportManagementService.getReportPdf/Csv()`. On-demand generisanje iz stored podataka, bez file storage. Reuse SlaExportService (Thymeleaf PDF + Commons CSV). |
 | G-05 | Breach Management API (backend) | 2026-03-11 | Simple PATCH endpointi (Pristup A). `PATCH /breaches/{id}/acknowledge`, `PATCH /breaches/{id}/resolve`, `GET /breaches/unacknowledged`, `GET /breaches/unresolved`. Lifecycle polja u SlaBreachDto, MapStruct mappings, repository queries. Request DTOs u oci-library. Username iz SecurityContext. |
 | G-08 | Deactivate SLA u UI | 2026-03-11 | Deactivate dugme u Actions koloni sa confirmation dialogom. Lista prebačena sa `getActiveDefinitions()` na `getAllDefinitions()` — prikazuje active + inactive. `slaDefinitionService.deactivate()` poziva PATCH endpoint. Optimistic UI update. |
+| G-09 | SecurityContext za audit username | 2026-03-11 | Zamenjeno 6x hardkodirano `"system"` sa `AuthHelper.getPrincipalUsername("system")` u 3 kontrolera: SlaExcludedDowntimeController (create, update), SlaReportScheduleController (create, update, updateStatus), StoredSlaReportController (archive). |
 
 ---
 
@@ -23,7 +24,7 @@
 |---|--------|--------|-----------|--------|
 | G-03 | ~~Authorization check u SlaReportService~~ | ~~2h~~ | ~~KRITIČAN~~ | ✅ DONE |
 | G-04 | ~~Konfigurabilni monitoring interval~~ | ~~1h~~ | ~~KRITIČAN~~ | ✅ DONE |
-| G-09 | SecurityContext za audit username | 1h | NIZAK | TODO |
+| G-09 | ~~SecurityContext za audit username~~ | ~~1h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-06 | Email retry (inline exponential backoff) | 2-3h | VISOK | TODO |
 | G-08 | ~~Delete/Deactivate SLA u UI~~ | ~~2-3h~~ | ~~SREDNJI~~ | ✅ DONE |
 
