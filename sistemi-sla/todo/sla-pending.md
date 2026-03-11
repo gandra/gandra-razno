@@ -147,7 +147,7 @@ Neispunjeno:        0/19 (0%)
 | G-01 | ~~Report Scheduler ne postoji~~ | Backend | ~~KRITIČAN~~ | ~~12-16h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `SlaReportScheduler`, `SlaReportSchedulerService`, `SlaReportGenerationService` u oci-monitor. Cron 00:30 (posle computation 00:05-00:15). ShedLock, toggle. PDF/CSV generisanje ostaje kao G-02. |
 | G-02 | PDF/CSV generisanje ne radi | Backend | KRITIČAN | 8-12h | `StoredSlaReportManagementService` ima TODO za PDF i CSV retrieval. Report format output je samo JSON. |
 | G-03 | ~~Authorization check u report servisu~~ | Backend | ~~KRITIČAN~~ | ~~2h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `SlaReportService.validateTenantAccess()` implementiran sa superadmin bypass + organization ID poredjenje. Prati TenantService pattern. |
-| G-04 | Hardcoded monitoring interval | Backend | VISOK | 1h | `AvailabilityCalculatorService`: `monitoringIntervalMinutes = 5` hardcodiran. Mora biti konfigurabilno. |
+| G-04 | ~~Hardcoded monitoring interval~~ | Backend | ~~VISOK~~ | ~~1h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `@Value("${sla.monitoring.interval-minutes:5}")` u `AvailabilityCalculatorService`. Property dodat u `application.properties`. |
 
 ### 3.2 Značajni gapovi (should-have za produkciju)
 
@@ -243,9 +243,9 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 ### 5.2 Scorecard
 
 ```
-Implementirano po preporuci:  6/9 (67%)
+Implementirano po preporuci:  7/9 (78%)
 Parcijalno:                   1/9 (11%)
-Neimplementirano:             2/9 (22%)
+Neimplementirano:             1/9 (11%)
 ```
 
 ---
