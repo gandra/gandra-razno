@@ -9,6 +9,7 @@
 | # | Stavka | Datum | Napomena |
 |---|--------|-------|----------|
 | G-01 | Report Scheduler | 2026-03-11 | `SlaReportScheduler` + `SlaReportSchedulerService` + `SlaReportGenerationService` u oci-monitor. Cron 00:30, ShedLock, toggle via `sla.report.scheduled`. PDF/CSV gen. ostaje kao G-02. |
+| G-03 | Authorization check u SlaReportService | 2026-03-11 | `validateTenantAccess()` implementiran sa superadmin/sysadmin bypass + organization ID poređenje. Prati TenantService pattern. |
 
 ---
 
@@ -16,7 +17,7 @@
 
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
-| G-03 | Authorization check u SlaReportService | 2h | KRITIČAN | TODO |
+| G-03 | ~~Authorization check u SlaReportService~~ | ~~2h~~ | ~~KRITIČAN~~ | ✅ DONE |
 | G-04 | Konfigurabilni monitoring interval | 1h | KRITIČAN | TODO |
 | G-09 | SecurityContext za audit username | 1h | NIZAK | TODO |
 | G-06 | Email retry (inline exponential backoff) | 2-3h | VISOK | TODO |
