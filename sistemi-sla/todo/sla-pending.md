@@ -48,7 +48,7 @@
 - ~~Report Format Generation — PDF/CSV fajlovi se ne generišu (samo JSON)~~ ✅ On-demand PDF/CSV generisanje implementirano (2026-03-11)
 - ~~Breach Management API — nema lifecycle (acknowledge/resolve), nema state machine, nema audit trail~~ ✅ Breach Management API implementiran (2026-03-11): PATCH acknowledge/resolve + GET unacknowledged/unresolved
 - Webhook Notifications — komentarisano, nije implementirano
-- Email Retry Logic — jedan pokušaj, nema exponential backoff
+- ~~Email Retry Logic — jedan pokušaj, nema exponential backoff~~ ✅ Implementirano (2026-03-12): Inline exponential backoff u MailerService
 - Manual Report Trigger — endpoint postoji ali implementacija je TODO
 
 ### 1.2 Frontend (oci-sla-management-poc-ui)
@@ -83,12 +83,22 @@
 
 ### 1.3 Flyway migracije
 
+**Dev profil** (`oci-api/src/main/resources/db/migration/dev/`):
+
 | Migracija | Opis | Status |
 |-----------|------|--------|
 | V6 | Core SLA tabele (definition, result, breach, excluded_downtime) | ✅ |
 | V7 | Resource SLA info | ✅ |
 | V8 | Scheduler settings | ✅ |
 | V10 | Report tabele (report, report_schedule, report_breach_summary) | ✅ |
+| V12 | Email send log tabela (Phase 2 email retry) | ✅ |
+
+**Prod profil** (`oci-api/src/main/resources/db/migration/prod/`):
+
+| Migracija | Opis | Status |
+|-----------|------|--------|
+| V1-V5 | Init, data, users, org/tenant, notif/reports | ✅ |
+| V6 | Email send log tabela (Phase 2 email retry) | ✅ |
 
 ---
 
@@ -155,7 +165,7 @@ Neispunjeno:        0/19 (0%)
 | # | Gap | Komponenta | Rizik | Effort | Opis |
 |---|-----|-----------|-------|--------|------|
 | G-05 | ~~Breach Management lifecycle~~ | ~~Backend + UI~~ | ~~VISOK~~ | ~~20-30h~~ | ✅ **KOMPLETNO IMPLEMENTIRANO** (2026-03-11): Backend — PATCH acknowledge/resolve endpointi, GET unacknowledged/unresolved, lifecycle polja u DTO, MapStruct mappings, repository queries. Frontend — SlaBreachListPage sa tab toggle (Unacknowledged/Unresolved), acknowledge/resolve dijalozi sa notes, severity badges, pagination, filtering. |
-| G-06 | Email retry mehanizam | Backend | VISOK | 4-6h | Jedan pokušaj slanja emaila. Mrežni problem = trajna izgubljena notifikacija. |
+| G-06 | ~~Email retry mehanizam~~ | ~~Backend~~ | ~~VISOK~~ | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-12): Phase 1 — Inline exponential backoff retry u sva 4 MailerService implementacija (SmtpMailerService + SendGridMailerService u oci-api i oci-monitor). Generički retry na nivou MailerService — pokriva sve pozivaoce emaila. Konfigurabilni parametri (max-attempts=3, base-delay=5s, multiplier=3.0, max-delay=45s). Phase 2 pripremljeno: `email_send_log` tabela (Flyway dev V12, prod V6). |
 | G-07 | Webhook notifikacije | Backend | SREDNJI | 2-3h (Phase 1) | Email-only. Nema integracije sa Slack, PagerDuty, ServiceNow, Mattermost. |
 | G-08 | ~~Delete/Deactivate SLA u UI~~ | ~~Frontend~~ | ~~SREDNJI~~ | ~~2h~~ | ✅ **KOMPLETNO IMPLEMENTIRANO** (2026-03-11): Deactivate dugme + confirmation dialog. Delete: backend `DELETE /api/sla/definitions/{id}` (samo inactive), frontend Delete dugme sa confirmation dialogom. |
 | G-09 | ~~Audit username u ExcludedDowntime~~ | Backend | ~~NIZAK~~ | ~~1h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `AuthHelper.getPrincipalUsername("system")` u 3 kontrolera (6 mesta): SlaExcludedDowntimeController, SlaReportScheduleController, StoredSlaReportController. |
@@ -235,7 +245,7 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 |----------|------|---------------------|----------------------|
 | PENALTY_CALCULATION_STATUS.md | Penalty kalkulacija | Phase 2.1 (fixed) + Phase 2.2 (formula) | ✅ **Implementirano** — PenaltyCalculationService + FormulaEvaluationService potpuno funkcionalni |
 | BREACH-RESOLUTION-API-ANALYSIS.md | Breach lifecycle | State Machine sa workflow-om (DETECTED→ACKNOWLEDGED→INVESTIGATING→RESOLVED) | ⚠️ **Backend implementiran** (2026-03-11) — Simple PATCH endpointi (Pristup A). UI ostaje TODO. |
-| EMAIL-RETRY-LOGIC-ANALYSIS.md | Email retry | Scheduled cleanup + exponential backoff | ❌ **Nije implementirano** — Jedan pokušaj, nema retry |
+| EMAIL-RETRY-LOGIC-ANALYSIS.md | Email retry | Scheduled cleanup + exponential backoff | ✅ **Phase 1 implementirano** (2026-03-12) — Inline exponential backoff u MailerService (sva 4 implementacije). Phase 2 (scheduled cleanup) pripremljeno: `email_send_log` tabela. |
 | MULTI-INSTANCE-SCHEDULER-ANALYSIS.md | Distributed locking | ShedLock (MySQL-based) | ✅ **Implementirano** — ShedLock sa `@SchedulerLock` na svim scheduled metodama |
 | SLA-REPORTS-SCHEDULER-ANALYSIS.md | Automatsko generisanje izveštaja | Entity + Scheduler + Email delivery | ✅ **Implementirano** (2026-03-11) — SlaReportScheduler + SlaReportSchedulerService + SlaReportGenerationService. Email delivery ostaje TODO. |
 | SLA_EXCLUDED_DOWNTIME_IMPLEMENTATION.md | Maintenance windows | Full CRUD + overlap validacija | ✅ **Implementirano** — 100% kompletno, backend + frontend |

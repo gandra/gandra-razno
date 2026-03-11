@@ -1,6 +1,6 @@
 # SLA Backlog
 
-> **Poslednje ažuriranje**: 2026-03-11
+> **Poslednje ažuriranje**: 2026-03-12
 
 ---
 
@@ -23,6 +23,7 @@
 | G-15 | Stored Report management UI | 2026-03-11 | Nova `StoredSlaReportListPage` stranica (`/sla/reports/stored`). Tabela: report name, SLA name, period, compliance% (color-coded vs target), breach count, status badge (DRAFT/PUBLISHED/ARCHIVED), generated at/by. Actions: Download PDF, Download CSV, Archive (optimistic update), Delete (confirmation dialog). `storedSlaReportService` (6 metoda sa blob download za PDF/CSV). Filtering: search + status + has breaches. Pagination. Nav tab "Stored Reports". |
 | G-08b | Delete SLA Definition (backend + UI) | 2026-03-11 | Backend: `DELETE /api/sla/definitions/{id}` endpoint. `SlaDefinitionManagementService.deleteSlaDefinition()` — hard delete, samo inactive definicije. `SlaService.deleteSlaDefinition()` sa tenant access validacijom. Frontend: `slaDefinitionService.delete()`, Delete dugme u SlaListPage (samo za inactive SLA), confirmation dialog sa upozorenjem. API ruta `DeleteDefinition(id)` u constants. |
 | G-14 | SLA Timeline chart | 2026-03-11 | `SlaTimelinePage` (`/sla/timeline`) sa Line chartom za compliance trend. `SlaTimelineChart` komponenta (Chart.js Line, target linija, status-colored tačke, gradient fill). `SlaResultDto` tip, `slaResultService` (koristi `GET /sla/results/definition/{id}`). Summary kartice (avg/min/max compliance, breach count, violation minutes). Tabela rezultata. Nav tab "Timeline". |
+| G-06 | Email retry (inline exponential backoff) | 2026-03-12 | Generički inline exponential backoff retry u sva 4 MailerService implementacije (SmtpMailerService + SendGridMailerService u oci-api i oci-monitor). Pokriva SVE pozivaoce emaila (10+). Konfigurabilni parametri: max-attempts=3, base-delay=5s, multiplier=3.0, max-delay=45s. Phase 2 pripremljeno: `email_send_log` Flyway migracija (dev V12, prod V6). |
 
 ---
 
@@ -33,7 +34,7 @@
 | G-03 | ~~Authorization check u SlaReportService~~ | ~~2h~~ | ~~KRITIČAN~~ | ✅ DONE |
 | G-04 | ~~Konfigurabilni monitoring interval~~ | ~~1h~~ | ~~KRITIČAN~~ | ✅ DONE |
 | G-09 | ~~SecurityContext za audit username~~ | ~~1h~~ | ~~NIZAK~~ | ✅ DONE |
-| G-06 | Email retry (inline exponential backoff) | 2-3h | VISOK | TODO |
+| G-06 | ~~Email retry (inline exponential backoff)~~ | ~~2-3h~~ | ~~VISOK~~ | ✅ DONE |
 | G-08 | ~~Delete/Deactivate SLA u UI~~ | ~~2-3h~~ | ~~SREDNJI~~ | ✅ DONE (deactivate + delete) |
 
 ---

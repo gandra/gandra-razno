@@ -1,9 +1,62 @@
 # G-06: Email Retry — Analiza i pristup
 
-> **Datum**: 2026-03-11
-> **Status**: Analiza / Pre implementacije
+> **Datum**: 2026-03-11 (analiza), 2026-03-12 (implementacija)
+> **Status**: Phase 1 IMPLEMENTIRANO (inline retry), Phase 2 PRIPREMLJENO (email_send_log tabela)
 > **Effort**: 2-6h (zavisno od pristupa)
 > **Referenca**: `analysis/EMAIL-RETRY-LOGIC-ANALYSIS.md`
+
+---
+
+## IMPLEMENTACIJA — Pristup D: Hybrid (Phase 1 inline retry + Phase 2 scheduled cleanup)
+
+### Implementirano (Phase 1 — Inline Exponential Backoff)
+
+**Pristup**: Generički email retry na nivou `MailerService` — pokriva SVE pozivaoce emaila u celoj aplikaciji (SLA breach, budget, subscription, commitment, cost reports, user registration, password reset, metrics notifications, tester).
+
+**Izmenjeni fajlovi:**
+
+| Fajl | Modul | Izmena |
+|------|-------|--------|
+| `SmtpMailerService.java` | oci-api | Inline retry sa exponential backoff |
+| `SmtpMailerService.java` | oci-monitor | Inline retry sa exponential backoff |
+| `SendGridMailerService.java` | oci-api | Inline retry sa exponential backoff + SendGrid status code handling |
+| `SendGridMailerService.java` | oci-monitor | Inline retry sa exponential backoff + SendGrid status code handling |
+| `application.properties` | oci-api | Retry konfiguracija (4 propertyja) |
+| `application.properties` | oci-monitor | Retry konfiguracija (4 propertyja) |
+
+**Retry konfiguracija (oba modula):**
+```properties
+email.retry.max-attempts=3
+email.retry.base-delay-ms=5000
+email.retry.multiplier=3.0
+email.retry.max-delay-ms=45000
+```
+
+**Backoff raspored:**
+```
+Attempt 1:  T+0s     (odmah)
+Attempt 2:  T+5s     (sleep 5s)
+Attempt 3:  T+20s    (sleep 15s = 5s × 3^1)
+Ukupno:     ~20s worst case
+```
+
+### Pripremljeno (Phase 2 — email_send_log tabela)
+
+**Flyway migracioni fajlovi:**
+
+| Profil | Putanja | Verzija |
+|--------|---------|---------|
+| **dev** | `oci-api/src/main/resources/db/migration/dev/V12__create_email_send_log_table.sql` | V12 |
+| **prod** | `oci-api/src/main/resources/db/migration/prod/V6__create_email_send_log_table.sql` | V6 |
+
+Tabela `email_send_log` je kreirana za Phase 2 (scheduled cleanup job). Phase 1 ne koristi ovu tabelu.
+
+### Phase 2 TODO (scheduled cleanup)
+- Entity klasa `EmailSendLog`
+- Repository `EmailSendLogRepository`
+- `EmailSendLogService` — logovanje failed emailova posle inline retry iscrpljivanja
+- `EmailRetryScheduler` — `@Scheduled` job koji periodično retry-uje PENDING/FAILED zapise
+- Alerting kad `MAX_RETRIES_REACHED`
 
 ---
 
