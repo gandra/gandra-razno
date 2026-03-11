@@ -1,7 +1,7 @@
 # G-06: Email Retry — Analiza i pristup
 
 > **Datum**: 2026-03-11 (analiza), 2026-03-12 (implementacija)
-> **Status**: Phase 1 IMPLEMENTIRANO (inline retry), Phase 2 PRIPREMLJENO (email_send_log tabela)
+> **Status**: Phase 1 ✅ IMPLEMENTIRANO (inline retry), Phase 2 ✅ IMPLEMENTIRANO (scheduled cleanup)
 > **Effort**: 2-6h (zavisno od pristupa)
 > **Referenca**: `analysis/EMAIL-RETRY-LOGIC-ANALYSIS.md`
 
@@ -51,12 +51,64 @@ Ukupno:     ~20s worst case
 
 Tabela `email_send_log` je kreirana za Phase 2 (scheduled cleanup job). Phase 1 ne koristi ovu tabelu.
 
-### Phase 2 TODO (scheduled cleanup)
-- Entity klasa `EmailSendLog`
-- Repository `EmailSendLogRepository`
-- `EmailSendLogService` — logovanje failed emailova posle inline retry iscrpljivanja
-- `EmailRetryScheduler` — `@Scheduled` job koji periodično retry-uje PENDING/FAILED zapise
-- Alerting kad `MAX_RETRIES_REACHED`
+### Implementirano (Phase 2 — Scheduled Cleanup)
+
+**Arhitektura:**
+```
+[Caller] → EmailSendLogService.sendEmailWithPersistence()
+              ├── MailerService.send() → SUCCESS → return
+              └── FAIL → save email_send_log (FAILED, next_retry_at)
+
+[EmailRetryScheduler] @Scheduled(every 5 min)
+    ├── find FAILED records where next_retry_at <= now
+    ├── for each: MailerService.send() (inline retry = 3 attempts)
+    ├── SUCCESS → status = SENT
+    └── FAIL → retry_count++, next_retry_at = backoff
+             └── if retry_count >= max_retries → MAX_RETRIES_REACHED
+                  └── log.error("Alert: email exhausted retries!")
+```
+
+**Scheduled retry backoff:**
+```
+Retry 1:  T+5min      (5 × 3^0)
+Retry 2:  T+20min     (5 × 3^1 = 15min later)
+Retry 3:  T+1h5min    (5 × 3^2 = 45min later)
+Retry 4:  T+3h20min   (5 × 3^3 = 135min later)
+Retry 5:  T+9h20min   (5 × 3^4 = 360min cap)
+MAX_RETRIES_REACHED → alert
+```
+
+**Kreirani fajlovi:**
+
+| Fajl | Modul | Opis |
+|------|-------|------|
+| `EmailSendStatus.java` | oci-library | Enum: PENDING, SENT, FAILED, MAX_RETRIES_REACHED |
+| `EmailSendLog.java` | oci-library | JPA entity za `email_send_log` tabelu (standalone, BIGINT PK) |
+| `EmailSendLogRepository.java` | oci-monitor | JPA repository sa `findRetryableEmails(now)` query |
+| `EmailSendLogService.java` | oci-monitor | `sendEmailWithPersistence()` + `processRetryableEmails()` |
+| `EmailRetryScheduler.java` | oci-monitor | `@Scheduled` + `@SchedulerLock` + `SchedulerToggleService` |
+
+**Modifikovani fajlovi:**
+
+| Fajl | Modul | Izmena |
+|------|-------|--------|
+| `SlaNotificationService.java` | oci-monitor | Zamena `MailerService` → `EmailSendLogService` (prvi consumer Phase 2) |
+| `application.properties` | oci-monitor | Scheduled retry konfiguracija (5 propertyja) |
+
+**Scheduled retry konfiguracija (oci-monitor):**
+```properties
+email.retry.scheduled.max-retries=5
+email.retry.scheduled.base-delay-minutes=5
+email.retry.scheduled.multiplier=3.0
+email.retry.scheduled.max-delay-minutes=360
+email.retry.scheduler.interval-ms=300000
+```
+
+**Scheduler toggle:** `email.retry.scheduled` u `scheduler_settings` tabeli.
+
+### Integracija ostalih pozivalaca (incrementalno)
+
+Ostali pozivoci emaila u oci-monitor (BudgetNotificationService, SubscriptionNotificationService, CommitmentNotificationService, CostReportsService, MetricsNotificationEventListener) mogu se prebaciti sa direktnog `mailerService` na `emailSendLogService.sendEmailWithPersistence()` po potrebi. SlaNotificationService je prvi consumer.
 
 ---
 

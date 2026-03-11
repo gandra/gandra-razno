@@ -1,7 +1,7 @@
 # SLA Gap Analysis & Pending Items
 
-> **Datum**: 2026-03-11
-> **Verzija**: 1.0
+> **Datum**: 2026-03-12
+> **Verzija**: 1.1
 > **Status**: Radni dokument
 
 ---
@@ -165,7 +165,7 @@ Neispunjeno:        0/19 (0%)
 | # | Gap | Komponenta | Rizik | Effort | Opis |
 |---|-----|-----------|-------|--------|------|
 | G-05 | ~~Breach Management lifecycle~~ | ~~Backend + UI~~ | ~~VISOK~~ | ~~20-30h~~ | ✅ **KOMPLETNO IMPLEMENTIRANO** (2026-03-11): Backend — PATCH acknowledge/resolve endpointi, GET unacknowledged/unresolved, lifecycle polja u DTO, MapStruct mappings, repository queries. Frontend — SlaBreachListPage sa tab toggle (Unacknowledged/Unresolved), acknowledge/resolve dijalozi sa notes, severity badges, pagination, filtering. |
-| G-06 | ~~Email retry mehanizam~~ | ~~Backend~~ | ~~VISOK~~ | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-12): Phase 1 — Inline exponential backoff retry u sva 4 MailerService implementacija (SmtpMailerService + SendGridMailerService u oci-api i oci-monitor). Generički retry na nivou MailerService — pokriva sve pozivaoce emaila. Konfigurabilni parametri (max-attempts=3, base-delay=5s, multiplier=3.0, max-delay=45s). Phase 2 pripremljeno: `email_send_log` tabela (Flyway dev V12, prod V6). |
+| G-06 | ~~Email retry mehanizam~~ | ~~Backend~~ | ~~VISOK~~ | ~~4-6h~~ | ✅ **KOMPLETNO IMPLEMENTIRANO** (2026-03-12): **Phase 1** — Inline exponential backoff u sva 4 MailerService implementacije. **Phase 2** — Scheduled cleanup: `EmailSendLog` entity, `EmailSendLogRepository`, `EmailSendLogService` (sendEmailWithPersistence + processRetryableEmails), `EmailRetryScheduler` (@Scheduled 5min + @SchedulerLock + SchedulerToggleService). `SlaNotificationService` prebaèen na EmailSendLogService (prvi consumer). Flyway: dev V12, prod V6. |
 | G-07 | Webhook notifikacije | Backend | SREDNJI | 2-3h (Phase 1) | Email-only. Nema integracije sa Slack, PagerDuty, ServiceNow, Mattermost. |
 | G-08 | ~~Delete/Deactivate SLA u UI~~ | ~~Frontend~~ | ~~SREDNJI~~ | ~~2h~~ | ✅ **KOMPLETNO IMPLEMENTIRANO** (2026-03-11): Deactivate dugme + confirmation dialog. Delete: backend `DELETE /api/sla/definitions/{id}` (samo inactive), frontend Delete dugme sa confirmation dialogom. |
 | G-09 | ~~Audit username u ExcludedDowntime~~ | Backend | ~~NIZAK~~ | ~~1h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `AuthHelper.getPrincipalUsername("system")` u 3 kontrolera (6 mesta): SlaExcludedDowntimeController, SlaReportScheduleController, StoredSlaReportController. |
@@ -245,7 +245,7 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 |----------|------|---------------------|----------------------|
 | PENALTY_CALCULATION_STATUS.md | Penalty kalkulacija | Phase 2.1 (fixed) + Phase 2.2 (formula) | ✅ **Implementirano** — PenaltyCalculationService + FormulaEvaluationService potpuno funkcionalni |
 | BREACH-RESOLUTION-API-ANALYSIS.md | Breach lifecycle | State Machine sa workflow-om (DETECTED→ACKNOWLEDGED→INVESTIGATING→RESOLVED) | ⚠️ **Backend implementiran** (2026-03-11) — Simple PATCH endpointi (Pristup A). UI ostaje TODO. |
-| EMAIL-RETRY-LOGIC-ANALYSIS.md | Email retry | Scheduled cleanup + exponential backoff | ✅ **Phase 1 implementirano** (2026-03-12) — Inline exponential backoff u MailerService (sva 4 implementacije). Phase 2 (scheduled cleanup) pripremljeno: `email_send_log` tabela. |
+| EMAIL-RETRY-LOGIC-ANALYSIS.md | Email retry | Scheduled cleanup + exponential backoff | ✅ **Kompletno implementirano** (2026-03-12) — Phase 1: Inline exponential backoff u MailerService (sva 4 implementacije). Phase 2: Scheduled cleanup — EmailSendLog entity, EmailSendLogService, EmailRetryScheduler, SlaNotificationService integracija. |
 | MULTI-INSTANCE-SCHEDULER-ANALYSIS.md | Distributed locking | ShedLock (MySQL-based) | ✅ **Implementirano** — ShedLock sa `@SchedulerLock` na svim scheduled metodama |
 | SLA-REPORTS-SCHEDULER-ANALYSIS.md | Automatsko generisanje izveštaja | Entity + Scheduler + Email delivery | ✅ **Implementirano** (2026-03-11) — SlaReportScheduler + SlaReportSchedulerService + SlaReportGenerationService. Email delivery ostaje TODO. |
 | SLA_EXCLUDED_DOWNTIME_IMPLEMENTATION.md | Maintenance windows | Full CRUD + overlap validacija | ✅ **Implementirano** — 100% kompletno, backend + frontend |
