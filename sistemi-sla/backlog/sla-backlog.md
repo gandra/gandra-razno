@@ -11,6 +11,7 @@
 | G-01 | Report Scheduler | 2026-03-11 | `SlaReportScheduler` + `SlaReportSchedulerService` + `SlaReportGenerationService` u oci-monitor. Cron 00:30, ShedLock, toggle via `sla.report.scheduled`. PDF/CSV gen. ostaje kao G-02. |
 | G-03 | Authorization check u SlaReportService | 2026-03-11 | `validateTenantAccess()` implementiran sa superadmin/sysadmin bypass + organization ID poređenje. Prati TenantService pattern. |
 | G-04 | Konfigurabilni monitoring interval | 2026-03-11 | `@Value("${sla.monitoring.interval-minutes:5}")` u `AvailabilityCalculatorService`. Uklonjen hardcoded `= 5` na 2 mesta. Property dodat u `application.properties`. |
+| G-02 | PDF/CSV generisanje za stored reports | 2026-03-11 | `SlaReportMapper.toReportDtoFromStoredReport()` + `StoredSlaReportManagementService.getReportPdf/Csv()`. On-demand generisanje iz stored podataka, bez file storage. Reuse SlaExportService (Thymeleaf PDF + Commons CSV). |
 
 ---
 
@@ -30,7 +31,7 @@
 
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
-| G-02 | PDF/CSV generisanje (StoredSlaReportManagementService) | 8-12h | KRITIČAN | TODO |
+| G-02 | ~~PDF/CSV generisanje (StoredSlaReportManagementService)~~ | ~~8-12h~~ | ~~KRITIČAN~~ | ✅ DONE |
 | G-15 | Stored Report management UI | 4-6h | SREDNJI | TODO |
 | — | Email delivery za zakazane izveštaje | 4-6h | SREDNJI | TODO |
 

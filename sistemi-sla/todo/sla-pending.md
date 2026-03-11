@@ -40,12 +40,12 @@
 **Parcijalno implementirano:**
 - SLA Notification Service — email radi, webhook TODO
 - ~~SLA Report Service — on-demand generisanje radi, ali `generateReport()` nema authorization check~~ ✅ Implementirano (2026-03-11)
-- Stored SLA Report — entity postoji, PDF/CSV retrieval nije implementiran (TODO)
+- ~~Stored SLA Report — entity postoji, PDF/CSV retrieval nije implementiran (TODO)~~ ✅ Implementirano (2026-03-11)
 - Manual computation trigger — endpoint postoji, ali bez dry-run, batch, progress tracking
 
 **Nije implementirano:**
 - ~~SLA Report Scheduler~~ ✅ Implementirano (2026-03-11)
-- Report Format Generation — PDF/CSV fajlovi se ne generišu (samo JSON)
+- ~~Report Format Generation — PDF/CSV fajlovi se ne generišu (samo JSON)~~ ✅ On-demand PDF/CSV generisanje implementirano (2026-03-11)
 - Breach Management API — nema lifecycle (acknowledge/resolve), nema state machine, nema audit trail
 - Webhook Notifications — komentarisano, nije implementirano
 - Email Retry Logic — jedan pokušaj, nema exponential backoff
@@ -145,7 +145,7 @@ Neispunjeno:        0/19 (0%)
 | # | Gap | Komponenta | Rizik | Effort | Opis |
 |---|-----|-----------|-------|--------|------|
 | G-01 | ~~Report Scheduler ne postoji~~ | Backend | ~~KRITIČAN~~ | ~~12-16h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `SlaReportScheduler`, `SlaReportSchedulerService`, `SlaReportGenerationService` u oci-monitor. Cron 00:30 (posle computation 00:05-00:15). ShedLock, toggle. PDF/CSV generisanje ostaje kao G-02. |
-| G-02 | PDF/CSV generisanje ne radi | Backend | KRITIČAN | 8-12h | `StoredSlaReportManagementService` ima TODO za PDF i CSV retrieval. Report format output je samo JSON. |
+| G-02 | ~~PDF/CSV generisanje ne radi~~ | Backend | ~~KRITIČAN~~ | ~~8-12h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `SlaReportMapper.toReportDtoFromStoredReport()` mapira stored SlaReport → SlaReportDto. `StoredSlaReportManagementService.getReportPdf/Csv()` generišu on-demand preko SlaExportService. Bez file storage — on-the-fly generisanje. |
 | G-03 | ~~Authorization check u report servisu~~ | Backend | ~~KRITIČAN~~ | ~~2h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `SlaReportService.validateTenantAccess()` implementiran sa superadmin bypass + organization ID poredjenje. Prati TenantService pattern. |
 | G-04 | ~~Hardcoded monitoring interval~~ | Backend | ~~VISOK~~ | ~~1h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `@Value("${sla.monitoring.interval-minutes:5}")` u `AvailabilityCalculatorService`. Property dodat u `application.properties`. |
 
@@ -243,9 +243,9 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 ### 5.2 Scorecard
 
 ```
-Implementirano po preporuci:  7/9 (78%)
+Implementirano po preporuci:  8/9 (89%)
 Parcijalno:                   1/9 (11%)
-Neimplementirano:             1/9 (11%)
+Neimplementirano:             0/9 (0%)
 ```
 
 ---
