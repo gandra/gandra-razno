@@ -18,6 +18,7 @@
 | G-10 | Pagination na listama | 2026-03-11 | Reusable `Pagination` komponenta + `usePagination` hook (client-side). Integrisano u SlaListPage i SlaReportScheduleListPage. Default 10 items/page, page size selector (10/20/50), first/prev/next/last navigacija. |
 | G-11 | Advanced filtering | 2026-03-11 | Client-side filtering sa `useMemo`. SlaListPage: search by name + status (All/Active/Inactive) + period type. SlaReportScheduleListPage: search by name + status + frequency. Clear filters dugme. Integrisano sa pagination (filtrirana lista → paginated). |
 | G-12 | Manual recomputation improvements | 2026-03-11 | Poboljšan trigger dialog u SlaListPage: date range inputi (periodStart/periodEnd), force recompute checkbox, auto-default na početak tekućeg perioda po periodType, detaljni prikaz rezultata (status, compliance%, resultId, message). Frontend-only — koristi postojeća backend polja. |
+| G-05 UI | Breach Management UI | 2026-03-11 | Nova `SlaBreachListPage` stranica (`/sla/breaches`). Tab toggle (Unacknowledged/Unresolved), tabela sa severity badge, compliance/target/deviation kolone, acknowledge/resolve dijalozi sa notes. `slaBreachService` (4 metode), `slaBreach.types.ts`, API rute u constants. Breaches tab u navigaciji. Pagination + filtering (search + severity). |
 
 ---
 
@@ -48,7 +49,7 @@
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
 | G-05 | ~~Breach Management API (simple PATCH endpoints)~~ | ~~4-6h~~ | ~~VISOK~~ | ✅ DONE |
-| G-05 | Breach Management UI | 4-6h | VISOK | TODO |
+| G-05 | ~~Breach Management UI~~ | ~~4-6h~~ | ~~VISOK~~ | ✅ DONE |
 | G-07 | Webhook notifikacije (simple POST + HMAC) | 2-3h | SREDNJI | TODO |
 
 ---
@@ -61,6 +62,7 @@
 | G-10 | ~~Pagination na listama~~ | ~~4h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-11 | ~~Advanced filtering~~ | ~~4-6h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-12 | ~~Manual recomputation improvements~~ | ~~3-4h~~ | ~~NIZAK~~ | ✅ DONE |
+| G-12b | Manual recomputation Phase 2 (dry-run, async batch, cancellation) | 8-12h | NIZAK | BACKLOG |
 | G-13 | Cron expression builder | 4h | NIZAK | TODO |
 
 ---

@@ -74,7 +74,7 @@
 **Nije implementirano:**
 - ~~Delete SLA Definition — nema dugme za brisanje~~ ⚠️ Backend nema delete endpoint, ostaje TODO
 - ~~Deactivate SLA toggle — samo edit~~ ✅ Deactivate dugme sa confirmation dialogom implementirano (2026-03-11)
-- Breach Management UI — nema acknowledge/resolve interfejs
+- ~~Breach Management UI — nema acknowledge/resolve interfejs~~ ✅ Implementirano (2026-03-11): SlaBreachListPage sa tab toggle, acknowledge/resolve dijalozima, pagination, filtering
 - Stored Report pregled — nema UI za pregled generisanih izveštaja
 - ~~Pagination — sve liste učitavaju sve podatke odjednom~~ ✅ Client-side pagination implementirana (2026-03-11)
 - ~~Search/Filter na listama — nema global search~~ ✅ Filtering implementiran (2026-03-11)
@@ -153,7 +153,7 @@ Neispunjeno:        0/19 (0%)
 
 | # | Gap | Komponenta | Rizik | Effort | Opis |
 |---|-----|-----------|-------|--------|------|
-| G-05 | ~~Breach Management lifecycle~~ | Backend + UI | ~~VISOK~~ | ~~20-30h~~ | ✅ **BACKEND IMPLEMENTIRAN** (2026-03-11): PATCH acknowledge/resolve endpointi, GET unacknowledged/unresolved, lifecycle polja u DTO, MapStruct mappings, repository queries. Frontend UI ostaje TODO. |
+| G-05 | ~~Breach Management lifecycle~~ | ~~Backend + UI~~ | ~~VISOK~~ | ~~20-30h~~ | ✅ **KOMPLETNO IMPLEMENTIRANO** (2026-03-11): Backend — PATCH acknowledge/resolve endpointi, GET unacknowledged/unresolved, lifecycle polja u DTO, MapStruct mappings, repository queries. Frontend — SlaBreachListPage sa tab toggle (Unacknowledged/Unresolved), acknowledge/resolve dijalozi sa notes, severity badges, pagination, filtering. |
 | G-06 | Email retry mehanizam | Backend | VISOK | 4-6h | Jedan pokušaj slanja emaila. Mrežni problem = trajna izgubljena notifikacija. |
 | G-07 | Webhook notifikacije | Backend | SREDNJI | 2-3h (Phase 1) | Email-only. Nema integracije sa Slack, PagerDuty, ServiceNow, Mattermost. |
 | G-08 | ~~Delete/Deactivate SLA u UI~~ | Frontend | ~~SREDNJI~~ | ~~2h~~ | ✅ **DEACTIVATE IMPLEMENTIRAN** (2026-03-11): Deactivate dugme u Actions koloni + confirmation dialog. Lista prikazuje sve SLA-ove (active + inactive). Delete ostaje TODO (backend nema endpoint). |
@@ -166,6 +166,7 @@ Neispunjeno:        0/19 (0%)
 | G-10 | ~~Pagination na listama~~ | Frontend | ~~4h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Reusable `Pagination` komponenta + `usePagination` hook. Client-side pagination na SlaListPage i SlaReportScheduleListPage (10 items/page, page size selector). |
 | G-11 | ~~Advanced filtering~~ | Frontend | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Client-side filtering na SlaListPage (search by name, status, period type) i SlaReportScheduleListPage (search by name, status, frequency). useMemo + Clear filters dugme. Integrisano sa pagination. |
 | G-12 | ~~Manual recomputation improvements~~ | ~~Backend~~ | ~~3-4h~~ | ✅ **UI IMPLEMENTIRAN** (2026-03-11): Poboljšan trigger dialog — date range inputi (periodStart/periodEnd), force recompute checkbox, default period po periodType, detaljni prikaz rezultata. Dry-run/async batch ostaje za Phase 2. |
+| G-12b | Manual recomputation Phase 2 | Backend | 8-12h | **BACKLOG**: Backend dry-run (`dryRun` field u DTO + skip save logika), async batch job (`sla_batch_job` tabela + `@Async` servis + polling endpoint), progress tracking, cancellation support. Ref: `MANUAL-SLA-RECOMPUTATION-ANALYSIS.md` Pristup 1 komplet + Pristup 2. |
 | G-13 | Cron expression builder | Frontend | 4h | Korisnici moraju ručno da unesu cron expression za custom schedule. |
 | G-14 | SLA istorijat timeline | Frontend | 6-8h | Pregled SLA rezultata kroz vreme kao timeline/trend chart. |
 | G-15 | Stored Report management UI | Frontend | 4-6h | Pregled, preuzimanje i arhiviranje generisanih izveštaja. |
