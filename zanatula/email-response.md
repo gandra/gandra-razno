@@ -18,7 +18,7 @@ The application fee was paid by my husband, Dragan Mijatovic, using his personal
 
 **5. Business plan**
 
-The planned company will be an e-commerce business focused on manufacturing and selling sustainable textile products made from hemp — specifically eco-friendly insoles and reusable cloth diapers. These are environmentally conscious alternatives to conventional synthetic products, aimed at health- and sustainability-oriented consumers.
+The planned company will be an e-commerce business focused on manufacturing and selling sustainable textile products made from hemp — specifically eco-friendly hemp-based sanitary pads and reusable tetra cloth diapers. These are environmentally conscious alternatives to conventional synthetic products, aimed at health- and sustainability-oriented consumers.
 
 - **Products:** Hemp-based sanitary pads, reusable tetra cloth diapers, and potentially other sustainable textile goods.
 - **Sales channel:** Amazon EU marketplace (pan-European fulfilment)
