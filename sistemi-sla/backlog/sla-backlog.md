@@ -21,6 +21,7 @@
 | G-05 UI | Breach Management UI | 2026-03-11 | Nova `SlaBreachListPage` stranica (`/sla/breaches`). Tab toggle (Unacknowledged/Unresolved), tabela sa severity badge, compliance/target/deviation kolone, acknowledge/resolve dijalozi sa notes. `slaBreachService` (4 metode), `slaBreach.types.ts`, API rute u constants. Breaches tab u navigaciji. Pagination + filtering (search + severity). |
 | G-13 | Cron expression builder | 2026-03-11 | Reusable `CronExpressionBuilder` komponenta. 6 preset-a (every hour, daily midnight, daily 6am, weekly Monday, monthly 1st, quarterly). Custom mode sa 5 field selektora (minute, hour, day, month, weekday). Human-readable opis, expression preview, manual input toggle. Integrisano u SlaReportScheduleFormPage umesto plain text inputa. |
 | G-15 | Stored Report management UI | 2026-03-11 | Nova `StoredSlaReportListPage` stranica (`/sla/reports/stored`). Tabela: report name, SLA name, period, compliance% (color-coded vs target), breach count, status badge (DRAFT/PUBLISHED/ARCHIVED), generated at/by. Actions: Download PDF, Download CSV, Archive (optimistic update), Delete (confirmation dialog). `storedSlaReportService` (6 metoda sa blob download za PDF/CSV). Filtering: search + status + has breaches. Pagination. Nav tab "Stored Reports". |
+| G-08b | Delete SLA Definition (backend + UI) | 2026-03-11 | Backend: `DELETE /api/sla/definitions/{id}` endpoint. `SlaDefinitionManagementService.deleteSlaDefinition()` — hard delete, samo inactive definicije. `SlaService.deleteSlaDefinition()` sa tenant access validacijom. Frontend: `slaDefinitionService.delete()`, Delete dugme u SlaListPage (samo za inactive SLA), confirmation dialog sa upozorenjem. API ruta `DeleteDefinition(id)` u constants. |
 
 ---
 
@@ -32,7 +33,7 @@
 | G-04 | ~~Konfigurabilni monitoring interval~~ | ~~1h~~ | ~~KRITIČAN~~ | ✅ DONE |
 | G-09 | ~~SecurityContext za audit username~~ | ~~1h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-06 | Email retry (inline exponential backoff) | 2-3h | VISOK | TODO |
-| G-08 | ~~Delete/Deactivate SLA u UI~~ | ~~2-3h~~ | ~~SREDNJI~~ | ✅ DONE |
+| G-08 | ~~Delete/Deactivate SLA u UI~~ | ~~2-3h~~ | ~~SREDNJI~~ | ✅ DONE (deactivate + delete) |
 
 ---
 
@@ -64,8 +65,16 @@
 | G-10 | ~~Pagination na listama~~ | ~~4h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-11 | ~~Advanced filtering~~ | ~~4-6h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-12 | ~~Manual recomputation improvements~~ | ~~3-4h~~ | ~~NIZAK~~ | ✅ DONE |
-| G-12b | Manual recomputation Phase 2 (dry-run, async batch, cancellation) | 8-12h | NIZAK | BACKLOG |
 | G-13 | ~~Cron expression builder~~ | ~~4h~~ | ~~NIZAK~~ | ✅ DONE |
+
+---
+
+## Backlog (budući sprintovi)
+
+| # | Stavka | Effort | Prioritet | Status |
+|---|--------|--------|-----------|--------|
+| G-12b | Manual recomputation Phase 2 (dry-run, async batch, cancellation) | 8-12h | NIZAK | BACKLOG |
+| G-16 | Notifikacije za bitne evente (delete SLA, breach acknowledge/resolve, schedule activate/deactivate, etc.) | 4-6h | SREDNJI | BACKLOG |
 
 ---
 
