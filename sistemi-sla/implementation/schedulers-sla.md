@@ -1,6 +1,6 @@
 # SLA Schedulers — Pregled
 
-> **Datum**: 2026-03-11
+> **Datum**: 2026-03-12
 > **Modul**: oci-monitor (oci-backend)
 > **Paket**: `com.sistemisolutions.oci.monitor.scheduler`
 
@@ -41,6 +41,7 @@ VREME     SCHEDULER                              ŠTA RADI
 00:10     SlaScheduler.scheduleWeeklySlas()       Nedeljna SLA computation (samo ponedeljkom)
 00:15     SlaScheduler.scheduleMonthlySlas()      Mesečna SLA computation (samo 1. u mesecu)
 00:30     SlaReportScheduler.processScheduledReports()  Generisanje izveštaja (svaki dan)
+~5min     EmailRetryScheduler.processFailedEmails()    Retry failed emailova (svaki 5 min)
 ```
 
 **Redosled je bitan**: SlaReportScheduler mora da se izvršava POSLE SlaScheduler-a jer koristi prethodno izračunate SlaResult zapise za generisanje izveštaja.
@@ -116,6 +117,46 @@ sla.report.scheduler.cron=0 30 0 * * *
 
 ---
 
+### 3. EmailRetryScheduler — Scheduled Email Retry (Phase 2)
+
+**Fajl**: `oci-monitor/scheduler/EmailRetryScheduler.java`
+
+Retry-uje emailove koji su propali posle inline retry-a (Phase 1). Čita iz `email_send_log` tabele i ponovo pokušava slanje putem MailerService.
+
+| Metoda | Interval | Konfigurabilno | ShedLock | Toggle |
+|--------|----------|---------------|----------|--------|
+| `processFailedEmails()` | `${email.retry.scheduler.interval-ms:300000}` (5 min) | Da, via props | lockAtMost=10min, lockAtLeast=1min | `email.retry.scheduled` |
+
+**Delegacija**: `EmailRetryScheduler` → `EmailSendLogService.processRetryableEmails()` → `MailerService.sendTextEmail/sendHtmlEmail()` (per email)
+
+**Logika obrade**:
+1. Pronalazi sve zapise iz `email_send_log` gde `status IN (PENDING, FAILED)` i `next_retry_at <= now` i `retry_count < max_retries`
+2. Za svaki: poziva MailerService (koji radi inline retry — 3 pokušaja)
+3. SUCCESS → `status = SENT`
+4. FAIL → `retry_count++`, `next_retry_at = backoff(count)` (exponential)
+5. Kad `retry_count >= max_retries` → `status = MAX_RETRIES_REACHED` + `log.error` alert
+
+**Scheduled retry backoff** (exponential, konfigurabilno):
+```
+Retry 1:  T+5min      (5 × 3^0)
+Retry 2:  T+20min     (5 × 3^1 = 15min later)
+Retry 3:  T+1h5min    (5 × 3^2 = 45min later)
+Retry 4:  T+3h20min   (5 × 3^3 = 135min later)
+Retry 5:  T+9h20min   (5 × 3^4 = 360min = 6h cap)
+```
+
+**Alerting**: Na kraju svakog batch-a, proverava `MAX_RETRIES_REACHED` zapise u poslednjih 24h i loguje `log.error` alert.
+
+**Greške**: Catch-and-log per email. Neuspeh jednog email-a ne zaustavlja batch.
+
+**Tabela**: `email_send_log` (Flyway dev V12, prod V6)
+**Entity**: `EmailSendLog` (oci-library, standalone, BIGINT PK)
+**Servis**: `EmailSendLogService` — `sendEmailWithPersistence()` + `processRetryableEmails()`
+
+**Prvi consumer**: `SlaNotificationService` koristi `EmailSendLogService.sendEmailWithPersistence()` umesto direktnog `MailerService` poziva.
+
+---
+
 ## Data Flow
 
 ### SLA Computation Flow
@@ -175,6 +216,40 @@ SlaReportGenerationService.generateReport(schedule)
 
 ---
 
+### Email Retry Flow (Phase 1 + Phase 2)
+
+```
+[Pozivalac] (npr. SlaNotificationService)
+    │
+    ▼
+EmailSendLogService.sendEmailWithPersistence(request, isHtml, source, sourceEntityId)
+    │
+    ├── MailerService.send() ──── Phase 1: 3 inline pokušaja (5s, 15s backoff)
+    │   │
+    │   ├── SUCCESS → return response
+    │   │
+    │   └── ALL FAILED → logFailedSend() → save email_send_log (FAILED, next_retry_at)
+    │                                        return error response
+    │
+    ▼ (5 min later)
+EmailRetryScheduler (@Scheduled fixedDelay=5min)
+    │
+    ▼
+EmailSendLogService.processRetryableEmails()
+    │ findRetryableEmails(now)
+    │
+    ▼ for each EmailSendLog:
+MailerService.send() ── Phase 1: 3 inline pokušaja
+    │
+    ├── SUCCESS → markSent()
+    │
+    └── FAIL → recordFailedAttempt() → next_retry_at = backoff
+                 │
+                 └── retry_count >= max_retries? → MAX_RETRIES_REACHED + log.error alert
+```
+
+---
+
 ## Konfiguracija
 
 ### application.properties (oci-monitor)
@@ -186,6 +261,19 @@ scheduling.enabled=true
 # SLA Report Scheduler cron
 # Default: daily at 00:30 — MUST be after SLA computation (00:05-00:15)
 sla.report.scheduler.cron=0 30 0 * * *
+
+# Email inline retry (Phase 1) — applies to both SMTP and SendGrid
+email.retry.max-attempts=3
+email.retry.base-delay-ms=5000
+email.retry.multiplier=3.0
+email.retry.max-delay-ms=45000
+
+# Email scheduled retry (Phase 2) — background job via email_send_log
+email.retry.scheduled.max-retries=5
+email.retry.scheduled.base-delay-minutes=5
+email.retry.scheduled.multiplier=3.0
+email.retry.scheduled.max-delay-minutes=360
+email.retry.scheduler.interval-ms=300000
 ```
 
 ### scheduler_settings tabela
@@ -198,6 +286,9 @@ INSERT INTO scheduler_settings (scheduler_task_name, is_enabled) VALUES ('sla.sc
 
 -- SLA Report toggle
 INSERT INTO scheduler_settings (scheduler_task_name, is_enabled) VALUES ('sla.report.scheduled', true);
+
+-- Email Retry toggle
+INSERT INTO scheduler_settings (scheduler_task_name, is_enabled) VALUES ('email.retry.scheduled', true);
 ```
 
 ---
@@ -207,12 +298,15 @@ INSERT INTO scheduler_settings (scheduler_task_name, is_enabled) VALUES ('sla.re
 ### Log prefixes
 
 ```
-SlaScheduler::         — SLA computation scheduler lifecycle
-SlaReportScheduler::   — Report scheduler lifecycle
-=== DAILY SLA ===      — Daily computation batch
-=== WEEKLY SLA ===     — Weekly computation batch
-=== MONTHLY SLA ===    — Monthly computation batch
-=== Report Scheduler === — Report generation batch
+SlaScheduler::                  — SLA computation scheduler lifecycle
+SlaReportScheduler::            — Report scheduler lifecycle
+=== DAILY SLA ===               — Daily computation batch
+=== WEEKLY SLA ===              — Weekly computation batch
+=== MONTHLY SLA ===             — Monthly computation batch
+=== Report Scheduler ===        — Report generation batch
+=== Email Retry Scheduler ===   — Email retry batch
+EMAIL RETRY EXHAUSTED:          — ALERT: email propao posle svih retry-eva
+ALERT: N email(s) have exhausted — Batch alert za MAX_RETRIES_REACHED
 ```
 
 ### Batch summary log format
