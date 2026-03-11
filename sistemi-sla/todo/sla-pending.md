@@ -75,7 +75,7 @@
 - ~~Delete SLA Definition — nema dugme za brisanje~~ ⚠️ Backend nema delete endpoint, ostaje TODO
 - ~~Deactivate SLA toggle — samo edit~~ ✅ Deactivate dugme sa confirmation dialogom implementirano (2026-03-11)
 - ~~Breach Management UI — nema acknowledge/resolve interfejs~~ ✅ Implementirano (2026-03-11): SlaBreachListPage sa tab toggle, acknowledge/resolve dijalozima, pagination, filtering
-- Stored Report pregled — nema UI za pregled generisanih izveštaja
+- ~~Stored Report pregled — nema UI za pregled generisanih izveštaja~~ ✅ Implementirano (2026-03-11): StoredSlaReportListPage sa download PDF/CSV, archive, delete, filtering, pagination
 - ~~Pagination — sve liste učitavaju sve podatke odjednom~~ ✅ Client-side pagination implementirana (2026-03-11)
 - ~~Search/Filter na listama — nema global search~~ ✅ Filtering implementiran (2026-03-11)
 - User Profile page — endpoint definisan ali nije korišćen
@@ -169,7 +169,7 @@ Neispunjeno:        0/19 (0%)
 | G-12b | Manual recomputation Phase 2 | Backend | 8-12h | **BACKLOG**: Backend dry-run (`dryRun` field u DTO + skip save logika), async batch job (`sla_batch_job` tabela + `@Async` servis + polling endpoint), progress tracking, cancellation support. Ref: `MANUAL-SLA-RECOMPUTATION-ANALYSIS.md` Pristup 1 komplet + Pristup 2. |
 | G-13 | ~~Cron expression builder~~ | ~~Frontend~~ | ~~4h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Reusable `CronExpressionBuilder` komponenta sa 6 preset-a, 5 field selektora, human-readable opisom, manual input toggle. Integrisano u SlaReportScheduleFormPage. |
 | G-14 | SLA istorijat timeline | Frontend | 6-8h | Pregled SLA rezultata kroz vreme kao timeline/trend chart. |
-| G-15 | Stored Report management UI | Frontend | 4-6h | Pregled, preuzimanje i arhiviranje generisanih izveštaja. |
+| G-15 | ~~Stored Report management UI~~ | ~~Frontend~~ | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `StoredSlaReportListPage` sa tabelom (report name, SLA name, period, compliance%, breaches, status), download PDF/CSV (blob), archive (optimistic update), delete (confirmation dialog). `storedSlaReportService` (6 metoda). Filtering (search + status + breaches) + pagination. Nav tab. |
 
 ---
 

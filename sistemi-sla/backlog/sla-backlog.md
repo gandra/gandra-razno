@@ -20,6 +20,7 @@
 | G-12 | Manual recomputation improvements | 2026-03-11 | Poboljšan trigger dialog u SlaListPage: date range inputi (periodStart/periodEnd), force recompute checkbox, auto-default na početak tekućeg perioda po periodType, detaljni prikaz rezultata (status, compliance%, resultId, message). Frontend-only — koristi postojeća backend polja. |
 | G-05 UI | Breach Management UI | 2026-03-11 | Nova `SlaBreachListPage` stranica (`/sla/breaches`). Tab toggle (Unacknowledged/Unresolved), tabela sa severity badge, compliance/target/deviation kolone, acknowledge/resolve dijalozi sa notes. `slaBreachService` (4 metode), `slaBreach.types.ts`, API rute u constants. Breaches tab u navigaciji. Pagination + filtering (search + severity). |
 | G-13 | Cron expression builder | 2026-03-11 | Reusable `CronExpressionBuilder` komponenta. 6 preset-a (every hour, daily midnight, daily 6am, weekly Monday, monthly 1st, quarterly). Custom mode sa 5 field selektora (minute, hour, day, month, weekday). Human-readable opis, expression preview, manual input toggle. Integrisano u SlaReportScheduleFormPage umesto plain text inputa. |
+| G-15 | Stored Report management UI | 2026-03-11 | Nova `StoredSlaReportListPage` stranica (`/sla/reports/stored`). Tabela: report name, SLA name, period, compliance% (color-coded vs target), breach count, status badge (DRAFT/PUBLISHED/ARCHIVED), generated at/by. Actions: Download PDF, Download CSV, Archive (optimistic update), Delete (confirmation dialog). `storedSlaReportService` (6 metoda sa blob download za PDF/CSV). Filtering: search + status + has breaches. Pagination. Nav tab "Stored Reports". |
 
 ---
 
@@ -40,7 +41,7 @@
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
 | G-02 | ~~PDF/CSV generisanje (StoredSlaReportManagementService)~~ | ~~8-12h~~ | ~~KRITIČAN~~ | ✅ DONE |
-| G-15 | Stored Report management UI | 4-6h | SREDNJI | TODO |
+| G-15 | ~~Stored Report management UI~~ | ~~4-6h~~ | ~~SREDNJI~~ | ✅ DONE |
 | — | Email delivery za zakazane izveštaje | 4-6h | SREDNJI | TODO |
 
 ---
