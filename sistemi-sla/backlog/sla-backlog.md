@@ -22,6 +22,7 @@
 | G-13 | Cron expression builder | 2026-03-11 | Reusable `CronExpressionBuilder` komponenta. 6 preset-a (every hour, daily midnight, daily 6am, weekly Monday, monthly 1st, quarterly). Custom mode sa 5 field selektora (minute, hour, day, month, weekday). Human-readable opis, expression preview, manual input toggle. Integrisano u SlaReportScheduleFormPage umesto plain text inputa. |
 | G-15 | Stored Report management UI | 2026-03-11 | Nova `StoredSlaReportListPage` stranica (`/sla/reports/stored`). Tabela: report name, SLA name, period, compliance% (color-coded vs target), breach count, status badge (DRAFT/PUBLISHED/ARCHIVED), generated at/by. Actions: Download PDF, Download CSV, Archive (optimistic update), Delete (confirmation dialog). `storedSlaReportService` (6 metoda sa blob download za PDF/CSV). Filtering: search + status + has breaches. Pagination. Nav tab "Stored Reports". |
 | G-08b | Delete SLA Definition (backend + UI) | 2026-03-11 | Backend: `DELETE /api/sla/definitions/{id}` endpoint. `SlaDefinitionManagementService.deleteSlaDefinition()` — hard delete, samo inactive definicije. `SlaService.deleteSlaDefinition()` sa tenant access validacijom. Frontend: `slaDefinitionService.delete()`, Delete dugme u SlaListPage (samo za inactive SLA), confirmation dialog sa upozorenjem. API ruta `DeleteDefinition(id)` u constants. |
+| G-14 | SLA Timeline chart | 2026-03-11 | `SlaTimelinePage` (`/sla/timeline`) sa Line chartom za compliance trend. `SlaTimelineChart` komponenta (Chart.js Line, target linija, status-colored tačke, gradient fill). `SlaResultDto` tip, `slaResultService` (koristi `GET /sla/results/definition/{id}`). Summary kartice (avg/min/max compliance, breach count, violation minutes). Tabela rezultata. Nav tab "Timeline". |
 
 ---
 
@@ -61,7 +62,7 @@
 
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
-| G-14 | SLA Timeline chart | 6-8h | SREDNJI | TODO |
+| G-14 | ~~SLA Timeline chart~~ | ~~6-8h~~ | ~~SREDNJI~~ | ✅ DONE |
 | G-10 | ~~Pagination na listama~~ | ~~4h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-11 | ~~Advanced filtering~~ | ~~4-6h~~ | ~~NIZAK~~ | ✅ DONE |
 | G-12 | ~~Manual recomputation improvements~~ | ~~3-4h~~ | ~~NIZAK~~ | ✅ DONE |
