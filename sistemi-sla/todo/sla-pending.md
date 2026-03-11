@@ -72,8 +72,8 @@
 - Cron expression — nema UI builder/validator
 
 **Nije implementirano:**
-- Delete SLA Definition — nema dugme za brisanje
-- Deactivate SLA toggle — samo edit
+- ~~Delete SLA Definition — nema dugme za brisanje~~ ⚠️ Backend nema delete endpoint, ostaje TODO
+- ~~Deactivate SLA toggle — samo edit~~ ✅ Deactivate dugme sa confirmation dialogom implementirano (2026-03-11)
 - Breach Management UI — nema acknowledge/resolve interfejs
 - Stored Report pregled — nema UI za pregled generisanih izveštaja
 - Pagination — sve liste učitavaju sve podatke odjednom
@@ -156,7 +156,7 @@ Neispunjeno:        0/19 (0%)
 | G-05 | ~~Breach Management lifecycle~~ | Backend + UI | ~~VISOK~~ | ~~20-30h~~ | ✅ **BACKEND IMPLEMENTIRAN** (2026-03-11): PATCH acknowledge/resolve endpointi, GET unacknowledged/unresolved, lifecycle polja u DTO, MapStruct mappings, repository queries. Frontend UI ostaje TODO. |
 | G-06 | Email retry mehanizam | Backend | VISOK | 4-6h | Jedan pokušaj slanja emaila. Mrežni problem = trajna izgubljena notifikacija. |
 | G-07 | Webhook notifikacije | Backend | SREDNJI | 2-3h (Phase 1) | Email-only. Nema integracije sa Slack, PagerDuty, ServiceNow, Mattermost. |
-| G-08 | Delete/Deactivate SLA u UI | Frontend | SREDNJI | 2h | Korisnik ne može obrisati ili deaktivirati SLA iz interfejsa. |
+| G-08 | ~~Delete/Deactivate SLA u UI~~ | Frontend | ~~SREDNJI~~ | ~~2h~~ | ✅ **DEACTIVATE IMPLEMENTIRAN** (2026-03-11): Deactivate dugme u Actions koloni + confirmation dialog. Lista prikazuje sve SLA-ove (active + inactive). Delete ostaje TODO (backend nema endpoint). |
 | G-09 | Audit username u ExcludedDowntime | Backend | NIZAK | 1h | `createdBy`/`updatedBy` hardcodirano na "system" umesto iz SecurityContext. |
 
 ### 3.3 Nice-to-have gapovi
