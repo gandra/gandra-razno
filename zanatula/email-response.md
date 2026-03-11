@@ -20,7 +20,7 @@ The application fee was paid by my husband, Dragan [PREZIME], using his personal
 
 The planned company will be an e-commerce business focused on manufacturing and selling sustainable textile products made from hemp — specifically eco-friendly insoles and reusable cloth diapers. These are environmentally conscious alternatives to conventional synthetic products, aimed at health- and sustainability-oriented consumers.
 
-- **Products:** Hemp-based eco insoles, reusable cloth diapers, and potentially other sustainable textile goods
+- **Products:** Hemp-based sanitary pads, reusable tetra cloth diapers, and potentially other sustainable textile goods.
 - **Sales channel:** Amazon EU marketplace (pan-European fulfilment)
 - **Sourcing:** Raw hemp materials will be sourced from certified suppliers in Asia and/or Europe
 - **Management board location:** The company will be registered in Estonia and managed remotely, as permitted under the e-Residency framework
