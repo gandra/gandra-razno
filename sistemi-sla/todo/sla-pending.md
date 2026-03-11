@@ -44,7 +44,7 @@
 - Manual computation trigger — endpoint postoji, ali bez dry-run, batch, progress tracking
 
 **Nije implementirano:**
-- SLA Report Scheduler — nema `@Scheduled` komponente za automatsko generisanje
+- ~~SLA Report Scheduler~~ ✅ Implementirano (2026-03-11)
 - Report Format Generation — PDF/CSV fajlovi se ne generišu (samo JSON)
 - Breach Management API — nema lifecycle (acknowledge/resolve), nema state machine, nema audit trail
 - Webhook Notifications — komentarisano, nije implementirano
@@ -144,7 +144,7 @@ Neispunjeno:        0/19 (0%)
 
 | # | Gap | Komponenta | Rizik | Effort | Opis |
 |---|-----|-----------|-------|--------|------|
-| G-01 | Report Scheduler ne postoji | Backend | KRITIČAN | 12-16h | Entity `SlaReportSchedule` postoji ali nema `@Scheduled` komponentu koja ga koristi. Korisnici mogu konfigurisati zakazane izveštaje ali oni se nikada neće generisati. |
+| G-01 | ~~Report Scheduler ne postoji~~ | Backend | ~~KRITIČAN~~ | ~~12-16h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `SlaReportScheduler`, `SlaReportSchedulerService`, `SlaReportGenerationService` u oci-monitor. Cron 00:30 (posle computation 00:05-00:15). ShedLock, toggle. PDF/CSV generisanje ostaje kao G-02. |
 | G-02 | PDF/CSV generisanje ne radi | Backend | KRITIČAN | 8-12h | `StoredSlaReportManagementService` ima TODO za PDF i CSV retrieval. Report format output je samo JSON. |
 | G-03 | Authorization check u report servisu | Backend | KRITIČAN | 2h | `SlaReportService.generateReport()` nema tenant access validaciju — potencijalni data leak. |
 | G-04 | Hardcoded monitoring interval | Backend | VISOK | 1h | `AvailabilityCalculatorService`: `monitoringIntervalMinutes = 5` hardcodiran. Mora biti konfigurabilno. |
@@ -234,7 +234,7 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 | BREACH-RESOLUTION-API-ANALYSIS.md | Breach lifecycle | State Machine sa workflow-om (DETECTED→ACKNOWLEDGED→INVESTIGATING→RESOLVED) | ❌ **Nije implementirano** — Entity ima polja ali nema API ni UI |
 | EMAIL-RETRY-LOGIC-ANALYSIS.md | Email retry | Scheduled cleanup + exponential backoff | ❌ **Nije implementirano** — Jedan pokušaj, nema retry |
 | MULTI-INSTANCE-SCHEDULER-ANALYSIS.md | Distributed locking | ShedLock (MySQL-based) | ✅ **Implementirano** — ShedLock sa `@SchedulerLock` na svim scheduled metodama |
-| SLA-REPORTS-SCHEDULER-ANALYSIS.md | Automatsko generisanje izveštaja | Entity + Scheduler + Email delivery | ❌ **Entity postoji**, scheduler ne |
+| SLA-REPORTS-SCHEDULER-ANALYSIS.md | Automatsko generisanje izveštaja | Entity + Scheduler + Email delivery | ✅ **Implementirano** (2026-03-11) — SlaReportScheduler + SlaReportSchedulerService + SlaReportGenerationService. Email delivery ostaje TODO. |
 | SLA_EXCLUDED_DOWNTIME_IMPLEMENTATION.md | Maintenance windows | Full CRUD + overlap validacija | ✅ **Implementirano** — 100% kompletno, backend + frontend |
 | TRANSACTION-BOUNDARIES-ANALYSIS.md | Race condition | @TransactionalEventListener(AFTER_COMMIT) | ✅ **Implementirano** — SlaBreachDetectionService koristi AFTER_COMMIT |
 | WEBHOOK-NOTIFICATIONS-ANALYSIS.md | Webhook podrška | Phase 1 (simple POST + HMAC) | ❌ **Nije implementirano** — Komentarisano u kodu |
@@ -243,9 +243,9 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 ### 5.2 Scorecard
 
 ```
-Implementirano po preporuci:  4/9 (44%)
+Implementirano po preporuci:  5/9 (56%)
 Parcijalno:                   1/9 (11%)
-Neimplementirano:             4/9 (44%)
+Neimplementirano:             3/9 (33%)
 ```
 
 ---
