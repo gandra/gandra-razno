@@ -79,6 +79,7 @@
 - ~~Stored Report pregled — nema UI za pregled generisanih izveštaja~~ ✅ Implementirano (2026-03-11): StoredSlaReportListPage sa download PDF/CSV, archive, delete, filtering, pagination
 - ~~Pagination — sve liste učitavaju sve podatke odjednom~~ ✅ Client-side pagination implementirana (2026-03-11)
 - ~~Search/Filter na listama — nema global search~~ ✅ Filtering implementiran (2026-03-11)
+- ~~Navigacija — 7 flat tabova~~ ✅ Restruktuirano (2026-03-12): 6 SLA sub-stranica u "SLA" dropdown, 3 top-level stavke (SLA, Notifications, Architecture Info). NavDropdown komponenta po OCI UI patternu.
 - User Profile page — endpoint definisan ali nije korišćen
 
 ### 1.3 Flyway migracije

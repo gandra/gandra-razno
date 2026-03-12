@@ -604,6 +604,7 @@ Komponente (✅ implementirano):
 - API rute u `constants.ts`: `SlaNotification.List/Undismissed/UndismissedCount/Dismiss`
 - Ruta `/sla/notifications` u `App.tsx`
 - `NotificationBell` dodat u `SlaNavigation.tsx` (desna strana, pre Logout dugmeta)
+- **Navigacija restruktuirana**: 6 SLA sub-stranica (Definitions, Report, Timeline, Breaches, Schedules, Stored Reports) u "SLA" dropdown. 3 top-level stavke: SLA, Notifications, Architecture Info. `NavDropdown` komponenta (hover+click, 300ms delay, chevron, per-item opisi). Olakšava UI team integraciju — dodaju samo "SLA" dropdown item u NavMenu i "SLA Notifications" u postojeći Notifications dropdown.
 
 API pozivi:
 - `GET /api/sla/notifications/undismissed/count` — za badge (polling svaki 60s)
