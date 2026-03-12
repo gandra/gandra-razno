@@ -75,6 +75,8 @@
 
 | # | Stavka | Effort | Prioritet | Status |
 |---|--------|--------|-----------|--------|
+| G-06a | ~~Seed data `email.retry.scheduled` u `scheduler_settings` tabeli~~ | ~~15min~~ | ~~VISOK~~ | ✅ DONE |
+| G-06b | Inkrementalna migracija ostalih oci-monitor pozivalaca na `EmailSendLogService` — BudgetNotificationService, SubscriptionNotificationService, CommitmentNotificationService, CostReportsService, MetricsNotificationEventListener. Zamena `mailerService` → `emailSendLogService.sendEmailWithPersistence()`. | 2-3h | SREDNJI | BACKLOG |
 | G-12b | Manual recomputation Phase 2 (dry-run, async batch, cancellation) | 8-12h | NIZAK | BACKLOG |
 | G-16 | Notifikacije za bitne evente (delete SLA, breach acknowledge/resolve, schedule activate/deactivate, etc.) | 4-6h | SREDNJI | BACKLOG |
 

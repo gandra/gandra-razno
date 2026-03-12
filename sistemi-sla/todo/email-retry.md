@@ -106,9 +106,36 @@ email.retry.scheduler.interval-ms=300000
 
 **Scheduler toggle:** `email.retry.scheduled` u `scheduler_settings` tabeli.
 
-### Integracija ostalih pozivalaca (incrementalno)
+### Pending stavke (G-06)
 
-Ostali pozivoci emaila u oci-monitor (BudgetNotificationService, SubscriptionNotificationService, CommitmentNotificationService, CostReportsService, MetricsNotificationEventListener) mogu se prebaciti sa direktnog `mailerService` na `emailSendLogService.sendEmailWithPersistence()` po potrebi. SlaNotificationService je prvi consumer.
+#### 1. ~~Seed data za `scheduler_settings` tabelu~~ ✅ DONE (2026-03-12)
+
+Flyway migracije dodate:
+- Dev: `V13__add_email_retry_scheduler_setting.sql`
+- Prod: `V7__add_email_retry_scheduler_setting.sql`
+
+INSERT `email.retry.scheduled` u `scheduler_settings` sa `is_enabled = true`. `ON DUPLICATE KEY UPDATE` za idempotentnost.
+
+#### 2. Inkrementalna migracija ostalih pozivalaca na EmailSendLogService
+
+Ostali pozivoci emaila u oci-monitor koriste direktno `mailerService` (imaju Phase 1 inline retry ali ne Phase 2 persistent retry):
+
+| Servis | Metod | Trenutni poziv | Effort migracije |
+|--------|-------|----------------|-----------------|
+| `BudgetNotificationService` | `notifyBudgetNotificationReports()` | `mailerService.sendHtmlEmail()` | 30min — zamena poziva + dodati source/sourceEntityId |
+| `SubscriptionNotificationService` | `notifySCNotificationSubscriptionReports()` | `mailerService.sendTextEmail()/sendHtmlEmail()` | 30min |
+| `CommitmentNotificationService` | `notifySCNotificationCommitmentReports()` | `mailerService.sendTextEmail()` | 30min |
+| `CostReportsService` | `notifyCostReports()` | `mailerService.sendHtmlEmail()` | 30min |
+| `MetricsNotificationEventListener` | `onApplicationEvent()` | `mailerService.sendTextEmail()` | 30min |
+
+**Ukupan effort**: ~2.5h za svih 5 servisa.
+
+**Prednosti migracije**:
+- Svi emailovi dobijaju Phase 2 persistent retry (preživljava restart, retry do ~9.5h)
+- Centralizovani log svih poslatih emailova u `email_send_log` tabeli
+- Vidljivost: `SELECT * FROM email_send_log WHERE source = 'BUDGET_NOTIFICATION'`
+
+**Preporuka**: Inkrementalno, po potrebi. `SlaNotificationService` je prvi consumer — ostali se mogu migirrati kad se pokaže potreba. Ovo nije blokirajuće.
 
 ---
 
