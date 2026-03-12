@@ -1,8 +1,8 @@
 # G-16: SLA Notifikacije — UI prikaz + Email obaveštenja
 
 > **Datum**: 2026-03-12
-> **Status**: Analiza / Pre implementacije
-> **Effort**: 6-10h (zavisno od pristupa)
+> **Status**: U implementaciji (Pristup A — Event Log + Scheduled Email)
+> **Effort**: 7-9h
 > **Backlog ref**: G-16 u `sla-backlog.md`
 
 ---
@@ -463,282 +463,39 @@ public void processEventNotifications() {
 
 ---
 
-### 4.2 Pristup B: Event Log tabela + Direct REST Email
+### 4.2 Pristup B: Event Log tabela + Direct REST Email (odbačen)
 
-Isti kao Pristup A za UI prikaz (tabela + SlaNotificationController), ali email se salje **odmah** putem REST poziva ka oci-monitor umesto putem schedulera.
+Isti kao A za UI (tabela + controller), ali email odmah putem REST ka oci-monitor. **Dva mehanizma** (tabela za UI, REST za email). Odbačen jer: dva mesta za maintain, REST dependency za email (izgubljen ako oci-monitor nedostupan), nejasna `emailNotified` semantika, error handling kompleksnost (INSERT uspe ali REST ne).
 
-**Dva mehanizma** — tabela za UI, REST za email.
+### 4.3 Pristup C: Event Log tabela + Inline Email (odbačen)
 
-#### Dijagram
+Tabela za UI + email lokalno u svakom modulu (oci-api: MailerService Phase 1 only, oci-monitor: EmailSendLogService Phase 1+2). Odbačen jer: **nekonzistentan retry** — 5/6 evenata u oci-api ima samo Phase 1 (3 pokušaja, ~20s), duplirana email logika u dva modula, anti-pattern (83% evenata zaobilazi EmailSendLogService).
 
-```
-oci-api (8080)                          sla_event_log            oci-monitor (8081)
-────────────────                        (shared MySQL)           ──────────────────
+### 4.4 Pristup D: Direct REST Email bez tabele (odbačen)
 
-SlaService.deactivateDefinition()            │
-    │                                        │
-    ├── 1. slaEventLogService.logEvent()     │
-    │      └── INSERT ──────────────────────►│         (za UI prikaz)
-    │         (emailNotified = true) ★       │
-    │                                        │
-    ├── 2. monitorApiService                 │
-    │      .sendSlaEventNotification(req)    │
-    │           │                            │
-    │           │  POST /monitoring/sla/     │
-    │           │       event-notification   │
-    │           │───────────────────────────────────►SlaEventNotificationController
-    │           │                            │              │
-    │           │                            │              ▼
-    │           │                            │      SlaNotificationService
-    │           │                            │       .sendEventNotification()
-    │           │                            │              │
-    │           │                            │              ▼
-    │           │                            │      EmailSendLogService
-    │           │                            │       .sendEmailWithPersistence()
-    │           │◄── 200 OK ─────────────────│
-    │           │                            │
-    └── response                             │
-                                             │
-SlaNotificationController                    │
-GET /api/sla/notifications                   │
-    └── SELECT ─────────────────────────────►│  (za UI prikaz)
-```
-
-**★ Napomena**: `emailNotified = true` se setuje odmah jer email ide putem REST-a, ne putem schedulera.
-
-#### Procena
-
-| Kriterijum | Ocena |
-|-----------|-------|
-| Sloznost | Srednja |
-| Effort | **7-9h** |
-| Flyway | **Da** — nova tabela (ista kao A) |
-| Email retry | **Phase 1+2 (sve)** — sve kroz EmailSendLogService |
-| UI prikaz | **Da** — SlaNotificationController cita iz tabele |
-| Audit trail | **Da** — isti kao A |
-| Novi scheduler | **Ne** — email ide putem REST-a |
-
-#### Prednosti
-
-- **Nema delay-a** — email se salje odmah, ne ceka scheduler ciklus.
-- **Bez novog schedulera** — 15 schedulera ostaje (nema 16.).
-- **UI prikaz** — isti kao Pristup A.
-- **Full Phase 1+2 retry** — isti kao A.
-
-#### Mane / Ogranicenja
-
-- **Dva mehanizma** — tabela za UI, REST za email. Dva mesta za maintain i debug.
-- **REST dependency** — ako oci-monitor nije dostupan, email se ne salje. Dogadjaj je u tabeli (UI ce ga prikazati) ali email je izgubljen.
-- **Tight coupling** — SlaService mora znati za oba mehanizma: INSERT za UI + REST za email.
-- **Nova tabela** — ista mana kao A.
-- **Error handling kompleksnost** — sta ako INSERT uspe ali REST ne? Treba try/catch za REST deo, ali INSERT mora ostati. Dogadjaj je vidljiv u UI ali email nikad nece stici.
-- **emailNotified flag semantika** — da li znaci "email je poslat" ili "email je prosledjen na slanje"? U Pristupu A semantika je jasna (scheduler ga setuje KAD posalje).
+Email putem REST ka oci-monitor, bez tabele. Odbačen jer: **ne podržava Z-1 (UI prikaz)** — nema tabele, nema podataka za SlaNotificationController. Nema audit trail. Pokriva samo email.
 
 ---
 
-### 4.3 Pristup C: Event Log tabela + Inline Email (per-module)
+## 5. Zašto Pristup A?
 
-Tabela za UI prikaz + email se salje lokalno u istom modulu gde event nastaje: u oci-api putem lokalnog `MailerService` (Phase 1 only), u oci-monitor putem `EmailSendLogService` (Phase 1+2).
-
-#### Dijagram
-
-```
-oci-api (8080)                                        oci-monitor (8081)
-────────────────                                      ──────────────────
-
-SlaService.deactivateDefinition()                     SlaReportGenerationService
-    │                                                        │
-    ├── 1. INSERT u sla_event_log                           ├── 1. INSERT u sla_event_log
-    │                                                        │
-    ├── 2. MailerService.sendTextEmail()                    ├── 2. EmailSendLogService
-    │      (SAMO Phase 1: 3 pokusaja, ~20s)                │      .sendEmailWithPersistence()
-    │      Nema Phase 2 persistent retry!                   │      (Phase 1 + Phase 2)
-    │                                                        │
-    │   ★ Ako sva 3 pokusaja failuju                        │   OK — EmailRetryScheduler
-    │     → email je IZGUBLJEN                               │     ce pokupiti FAILED
-    │     (nema email_send_log za retry)                     │
-```
-
-#### Procena
-
-| Kriterijum | Ocena |
-|-----------|-------|
-| Sloznost | Niska-Srednja |
-| Effort | **5-7h** |
-| Flyway | **Da** — nova tabela |
-| Email retry | **NEKONZISTENTNO** — oci-api = Phase 1 only, oci-monitor = Phase 1+2 |
-| UI prikaz | **Da** |
-| Audit trail | **Da** |
-| Novi scheduler | **Ne** |
-
-#### Prednosti
-
-- **Jednostavnost** — nema REST poziva, nema novog schedulera. Svaki modul radi lokalno.
-- **Nema cross-module dependency** — svaki modul salje email sam.
-- **Nema delay-a** — email se salje odmah.
-
-#### Mane / Ogranicenja
-
-- **⚠ NEKONZISTENTAN RETRY** — 5 od 6 evenata nastaje u oci-api koji **nema** `EmailSendLogService`. Ti eventi dobijaju samo Phase 1 retry (3 pokusaja, ~20s). Ako email provajder ima kratki outage (>20s), email je trajno izgubljen.
-- **Duplirana logika** — build email subject/body mora biti i u oci-api i u oci-monitor.
-- **Anti-pattern** — sistem ima `EmailSendLogService` za guaranteed delivery, a 83% evenata ga zaobilazi. Inkonsistentnost.
+1. **Jedan mehanizam za obe potrebe** — tabela je source of truth za UI i email. Nema duplikacije.
+2. **Konzistentan Phase 1+2 retry** — sve kroz EmailSendLogService u oci-monitor. B i C imaju probleme (REST dep. / nekonzistentan retry).
+3. **Self-healing** — scheduler pokuplja pending evente posle restarta. Nema izgubljenih notifikacija.
+4. **Proven pattern** — `email_send_log` + `EmailRetryScheduler` analog. Dokazan u produkciji.
+5. **SOLID: Single Responsibility** — SlaService zna samo za INSERT, scheduler zna za email, controller zna za UI.
+6. **Delay ~1min prihvatljiv** — SLA notifikacije su informativne, ne zahtevaju real-time.
 
 ---
 
-### 4.4 Pristup D: Direct REST Email (bez tabele)
+## 6. Implementacioni plan (Pristup A)
 
-Originalni pristup iz prethodne verzije dokumenta. Email se salje putem REST poziva ka oci-monitor. **Nema tabele, nema UI prikaza.**
+### Korak 1+2: Flyway + SlaEventType enum + SlaEventLog entity — ✅ DONE
 
-#### Dijagram
-
-```
-oci-api (8080)                                        oci-monitor (8081)
-────────────────                                      ──────────────────
-
-SlaService.deactivateDefinition()
-    │
-    └── monitorApiService
-         .sendSlaEventNotification(req)
-              │
-              │  POST /monitoring/sla/event-notification
-              │─────────────────────────────────────────────►SlaEventNotificationController
-              │                                                     │
-              │                                                     ▼
-              │                                              SlaNotificationService
-              │                                               .sendEventNotification()
-              │                                                     │
-              │                                                     ▼
-              │                                              EmailSendLogService
-              │                                               .sendEmailWithPersistence()
-              │◄── 200 OK ──────────────────────────────────────────┘
-
-              ❌ SlaNotificationController za UI = NEMOGUĆ (nema tabele)
-```
-
-#### Procena
-
-| Kriterijum | Ocena |
-|-----------|-------|
-| Sloznost | Niska |
-| Effort | **4-5h** |
-| Flyway | **Ne** |
-| Email retry | **Phase 1+2 (sve)** |
-| UI prikaz | **❌ NE** — nema tabele, nema podataka za prikaz |
-| Audit trail | **Ne** (samo email_send_log za deliverability) |
-| Novi scheduler | **Ne** |
-
-#### Prednosti
-
-- **Najjednostavniji** — nema nove tabele, nema novog schedulera.
-- **Full Phase 1+2 retry** — sve kroz EmailSendLogService.
-- **Existing pattern** — MonitorApiService vec koristi REST.
-
-#### Mane / Ogranicenja
-
-- **⚠ NE PODRŽAVA Z-1** — bez tabele nema podataka za `SlaNotificationController`. UI ne moze prikazati SLA notifikacije.
-- **REST dependency** — ako oci-monitor nije dostupan, email se ne salje.
-- **Nema audit trail** — dogadjaji se ne cuvaju nigde.
-- **Nedovoljan** za trenutne zahteve (UI prikaz + email). Pokriva samo email.
-
----
-
-## 5. Uporedna tabela
-
-| Kriterijum | A: Event Log + Scheduler (⭐) | B: Event Log + REST | C: Event Log + Inline | D: REST only |
-|---|---|---|---|---|
-| **UI prikaz (Z-1)** | ✅ Da | ✅ Da | ✅ Da | ❌ Ne |
-| **Email (Z-2)** | ✅ Da | ✅ Da | ✅ Da | ✅ Da |
-| **Email retry** | **Phase 1+2 (sve)** | **Phase 1+2 (sve)** | ⚠ **Mesovito** (api=P1, monitor=P1+2) | **Phase 1+2 (sve)** |
-| **Delay** | ~1min | Odmah | Odmah | Odmah |
-| **Nova tabela** | Da | Da | Da | Ne |
-| **Novi scheduler** | Da (16.) | Ne | Ne | Ne |
-| **Flyway** | Da (tabela + seed) | Da (tabela) | Da (tabela) | Ne |
-| **Cross-module** | Shared DB (natural) | Shared DB + REST | Per-module | REST |
-| **Audit trail** | ✅ Da | ✅ Da | ✅ Da | ❌ Ne |
-| **Mehanizmi** | 1 (tabela) | 2 (tabela + REST) | 2 (tabela + inline) | 1 (REST) |
-| **REST dependency** | Ne | Da | Ne | Da |
-| **Effort** | 7-9h | 7-9h | 5-7h | 4-5h |
-| **Sloznost** | Srednja | Srednja | Niska-Srednja | Niska |
-| **Persistent after restart** | ✅ Da | ⚠ Delimicno | ⚠ Delimicno | ❌ Ne |
-| **Fajlovi** | Entity + Repo + Scheduler + Controller + Service + Flyway | Entity + Repo + Controller + REST endpoint + Service + Flyway | Entity + Repo + Controller + Service (x2) + Flyway | Enum + DTO + REST endpoint |
-
----
-
-## 6. Preporuka: Pristup A — Event Log + Scheduled Email ⭐
-
-### Zasto Pristup A?
-
-**1. Jedini pristup sa jednim mehanizmom za obe potrebe**
-
-Tabela `sla_event_log` sluzi i za UI prikaz i za email slanje. Nema duplikacije logike, nema dva razlicita kanala za maintain. INSERT je source of truth — UI cita iz tabele, scheduler salje email iz iste tabele.
-
-Pristup B koristi tabelu za UI ali REST za email — dva mehanizma za istu stvar. Pristup C takodje dva mehanizma (tabela + inline), sa dodatnim problemom nekonzistentnog retry-a.
-
-**2. Konzistentan Phase 1+2 retry za SVE evente**
-
-Pristup C ima fundamentalan problem: 5 od 6 evenata (svi osim report generated) nastaju u oci-api koji **nema** `EmailSendLogService`. Ti eventi bi imali samo Phase 1 retry — 3 pokusaja u 20 sekundi. Ako email provajder ima outage duzi od 20 sekundi, emailovi za SLA deactivate, delete, breach acknowledge/resolve, schedule status change su **trajno izgubljeni**.
-
-Pristup A i B oba imaju full Phase 1+2 retry. Pristup A je cistiji jer scheduler cita iz tabele (jedna transakcija, jasan lifecycle), dok B zavisi od REST poziva (moze da failuje nezavisno od INSERT-a).
-
-**3. Persistent i self-healing**
-
-Ako je oci-monitor neaktivan 30 minuta (deploy, restart, incident):
-- **Pristup A**: Pri pokretanju scheduler pokuplja SVE pending evente. Nijedna notifikacija nije izgubljena.
-- **Pristup B**: REST pozivi za tih 30 min su failovali. emailNotified je `true` (postavljeno u oci-api), ali email nikad nije stigao u EmailSendLogService. Notifikacije su u tabeli za UI ali email je **trajno izgubljen**.
-- **Pristup D**: Svi REST pozivi failovali. Nista nije sacuvano.
-
-**4. Existing proven pattern**
-
-`email_send_log` + `EmailRetryScheduler` je isti arhitekturalni pattern: tabela sa pending statusom + scheduler koji procesira. Dokazan u produkciji. `sla_event_log` + `SlaEventNotificationScheduler` je analogna kopija.
-
-**5. SOLID: Single Responsibility**
-
-```
-SlaService          → business logika + event log INSERT (samo zna za tabelu)
-SlaEventLogService  → INSERT wrapper sa message formatting
-Scheduler           → cita pending, salje email, markira
-Controller          → cita za UI
-```
-
-Svaka klasa ima jednu odgovornost. SlaService ne zna za REST pozive, ne zna za email provajder, ne zna za retry mehanizam. Samo loguje dogadjaj u tabelu.
-
-**6. Delay od ~1 minut je prihvatljiv**
-
-SLA notifikacije su **informativne** (neko je deaktivirao SLA, neko je acknowledge-ovao breach). Ne zahtevaju real-time delivery. Delay od 1 minuta je prakticno nevidljiv za primaoce.
-
-### A vs D (kljucno pitanje iz zadatka)
-
-Originalno je Pristup A (direct REST) bio preporuka. Sada kad postoji zahtev za UI prikaz, situacija se menja:
-
-| Aspekt | Stari Pristup A (sada D) | Novi Pristup A (Event Log) |
-|---|---|---|
-| UI prikaz | ❌ Nemoguć | ✅ SlaNotificationController |
-| Audit trail | ❌ Nema | ✅ sla_event_log |
-| Self-healing | ❌ Lost on REST failure | ✅ Scheduler retry |
-| Sloznost | Niska | Srednja |
-| Effort | 4-5h | 7-9h |
-
-Trade-off je **2-4h vise posla** za:
-- UI prikaz SLA notifikacija (ceo Z-1 zahtev)
-- Audit trail svih SLA dogadjaja
-- Self-healing pri oci-monitor nedostupnosti
-- Cistija arhitektura (jedan mehanizam umesto dva)
-
----
-
-## 7. Implementacioni plan (Pristup A)
-
-### Korak 1: Flyway migracija — `sla_event_log` tabela
-
-- Dev: `V14__create_sla_event_log_table.sql`
-- Prod: `V8__create_sla_event_log_table.sql`
-- Sadrzaj: CREATE TABLE + indexes
-- Takodje: INSERT u `scheduler_settings` za `sla.event.notification.scheduled`
-
-### Korak 2: `SlaEventType` enum + `SlaEventLog` entity (oci-library)
-
-- `com.sistemisolutions.oci.lib.enums.SlaEventType` — enum sa 7 vrednosti
-- `com.sistemisolutions.oci.lib.entity.sla.SlaEventLog` — JPA entity za `sla_event_log`
+- Dev: `V14__create_sla_event_log_table.sql` — CREATE TABLE + scheduler seed
+- Prod: `V8__create_sla_event_log_table.sql` — isto za prod
+- `com.sistemisolutions.oci.lib.entity.sla.SlaEventType` — enum sa 7 vrednosti
+- `com.sistemisolutions.oci.lib.entity.sla.SlaEventLog` — standalone entity (BIGINT PK, kao EmailSendLog)
 
 ### Korak 3: `SlaEventLogRepository` (oci-api + oci-monitor)
 
@@ -804,7 +561,7 @@ Trade-off je **2-4h vise posla** za:
 
 ---
 
-## 8. Frontend plan
+## 7. Frontend plan
 
 ### 8.1 oci-sla-management-poc-ui
 
@@ -855,7 +612,7 @@ Kad UI team preuzme, dodaju:
 
 ---
 
-## 9. Email format
+## 8. Email format
 
 **Subject**: `[SLA Deactivated] Production API Availability`
 
@@ -878,7 +635,7 @@ This is an automated notification from OCI SLA Management.
 
 ---
 
-## 10. Buduca unapredjenja (van scope-a G-16)
+## 9. Buduca unapredjenja (van scope-a G-16)
 
 | Stavka | Opis | Trigger |
 |--------|------|---------|
