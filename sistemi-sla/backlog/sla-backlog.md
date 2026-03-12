@@ -24,6 +24,7 @@
 | G-08b | Delete SLA Definition (backend + UI) | 2026-03-11 | Backend: `DELETE /api/sla/definitions/{id}` endpoint. `SlaDefinitionManagementService.deleteSlaDefinition()` — hard delete, samo inactive definicije. `SlaService.deleteSlaDefinition()` sa tenant access validacijom. Frontend: `slaDefinitionService.delete()`, Delete dugme u SlaListPage (samo za inactive SLA), confirmation dialog sa upozorenjem. API ruta `DeleteDefinition(id)` u constants. |
 | G-14 | SLA Timeline chart | 2026-03-11 | `SlaTimelinePage` (`/sla/timeline`) sa Line chartom za compliance trend. `SlaTimelineChart` komponenta (Chart.js Line, target linija, status-colored tačke, gradient fill). `SlaResultDto` tip, `slaResultService` (koristi `GET /sla/results/definition/{id}`). Summary kartice (avg/min/max compliance, breach count, violation minutes). Tabela rezultata. Nav tab "Timeline". |
 | G-06 | Email retry (Hybrid — Phase 1 + Phase 2) | 2026-03-12 | **Phase 1**: Inline exponential backoff u sva 4 MailerService implementacije (oci-api + oci-monitor). **Phase 2**: Scheduled cleanup — `EmailSendLog` entity + `EmailSendStatus` enum (oci-library), `EmailSendLogRepository` + `EmailSendLogService` + `EmailRetryScheduler` (oci-monitor). @SchedulerLock + SchedulerToggleService. `SlaNotificationService` prebačen na EmailSendLogService (prvi consumer). Scheduled backoff: 5min→15min→45min→2h15min→6h (5 retries, ~9.5h). Flyway: dev V12, prod V6. |
+| G-17 | Email delivery za zakazane izveštaje sa PDF/CSV attachmentima | 2026-03-12 | **oci-library**: `EmailAttachmentDto` (filename, content, contentType), `SendEmailRequestDto.attachments` + `hasAttachments()`. **oci-monitor**: `SmtpMailerService` — multipart when attachments (MimeMessageHelper + addAttachment via ByteArrayDataSource). `SendGridMailerService` — Attachments API sa Base64 encoding. `pom.xml` — dodati Thymeleaf, Flying Saucer, Commons CSV dependencies. `SlaReportExportService` (NOVO) — PDF/CSV generisanje iz SlaReport entity (mirror oci-api SlaExportService). Kopirani `pdf_slareport.html` + `style.css` u oci-monitor resources. `SlaNotificationService.sendReportEmail()` — generiše PDF/CSV attachment-e po schedule config, šalje HTML email via EmailSendLogService. `SlaReportGenerationService.sendReportEmailIfConfigured()` — poziv posle logReportGeneratedEvent(), catch-and-log pattern. |
 | G-16 | SLA Notifikacije — Backend + Frontend | 2026-03-12 | **Backend**: `sla_event_log` tabela, `SlaEventType` enum, `SlaEventLog` entity (oci-library). oci-api: `SlaEventLogService`, `SlaEventLogRepository`, `SlaNotificationController`, `SlaEventLogDto`, `SlaEventLogMapper`. oci-monitor: `SlaEventNotificationScheduler` (@Scheduled 5min, ShedLock), `SlaNotificationService.sendEventNotification()` via EmailSendLogService, `SlaEventLogRepository`. Integracioni pozivi u SlaService, SlaReportScheduleManagementService, SlaReportGenerationService. Flyway: dev V14, prod V8. **Frontend**: `NotificationBell` (badge + dropdown, polling 60s), `SlaNotificationListPage` (/sla/notifications, tabela, 3 filtera, pagination, dismiss), `slaNotificationService`, `slaNotification.types.ts`. **Navigacija**: Restrukturirano — 6 SLA sub-stranica u "SLA" dropdown, 3 top-level stavke (SLA, Notifications, Architecture Info). NavDropdown komponenta (hover+click, chevron, opisi). Olakšava UI team integraciju. |
 
 ---
@@ -46,7 +47,7 @@
 |---|--------|--------|-----------|--------|
 | G-02 | ~~PDF/CSV generisanje (StoredSlaReportManagementService)~~ | ~~8-12h~~ | ~~KRITIČAN~~ | ✅ DONE |
 | G-15 | ~~Stored Report management UI~~ | ~~4-6h~~ | ~~SREDNJI~~ | ✅ DONE |
-| — | Email delivery za zakazane izveštaje | 4-6h | SREDNJI | TODO |
+| G-17 | ~~Email delivery za zakazane izveštaje~~ | ~~4-6h~~ | ~~SREDNJI~~ | ✅ DONE |
 
 ---
 
@@ -81,12 +82,13 @@
 | G-12b | Manual recomputation Phase 2 (dry-run, async batch, cancellation) | 8-12h | NIZAK | BACKLOG |
 | G-16 | ~~Notifikacije za bitne evente~~ | ~~7-9h~~ | ~~SREDNJI~~ | ✅ DONE (backend + frontend). |
 | G-16-FE | ~~SLA Notifikacije — Frontend~~ | ~~4-6h~~ | ~~SREDNJI~~ | ✅ DONE. NotificationBell (badge + dropdown), SlaNotificationListPage (tabela, filteri, pagination, dismiss), slaNotificationService, tipovi. |
+| G-17 | ~~Email delivery za zakazane izveštaje~~ | ~~4-6h~~ | ~~SREDNJI~~ | ✅ DONE (2026-03-12). Detalji u "Završeno" sekciji. |
 
 ---
 
 ## Dependency Notes
 
-- **G-02** (PDF/CSV) mora pre email delivery za zakazane izveštaje
+- ~~**G-02** (PDF/CSV) mora pre email delivery za zakazane izveštaje~~ ✅ Oba implementirana
 - **G-05** backend mora pre G-05 frontend (breach management)
 - Sprint 1 stavke su međusobno nezavisne
 - Sprint 4 stavke su međusobno nezavisne

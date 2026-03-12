@@ -38,7 +38,7 @@
 - Data coverage validacija (≥80% za dovoljno podataka)
 
 **Parcijalno implementirano:**
-- SLA Notification Service — email radi, webhook TODO
+- SLA Notification Service — breach email radi, event email radi, report email sa PDF/CSV attachmentima radi ✅ (2026-03-12), webhook TODO
 - ~~SLA Report Service — on-demand generisanje radi, ali `generateReport()` nema authorization check~~ ✅ Implementirano (2026-03-11)
 - ~~Stored SLA Report — entity postoji, PDF/CSV retrieval nije implementiran (TODO)~~ ✅ Implementirano (2026-03-11)
 - ~~Manual computation trigger — endpoint postoji, ali bez dry-run, batch, progress tracking~~ ✅ UI poboljšan (2026-03-11): date range, force recompute, detaljni rezultati. Dry-run/batch/progress ostaje za Phase 2.
@@ -50,6 +50,7 @@
 - Webhook Notifications — komentarisano, nije implementirano
 - ~~Email Retry Logic — jedan pokušaj, nema exponential backoff~~ ✅ Implementirano (2026-03-12): Inline exponential backoff u MailerService
 - Manual Report Trigger — endpoint postoji ali implementacija je TODO
+- ~~Email delivery za zakazane izveštaje~~ ✅ Implementirano (2026-03-12): `EmailAttachmentDto`, `SendEmailRequestDto.attachments`, `SmtpMailerService`/`SendGridMailerService` attachment podrška, `SlaReportExportService` (oci-monitor), `SlaNotificationService.sendReportEmail()`, `SlaReportGenerationService.sendReportEmailIfConfigured()`
 
 ### 1.2 Frontend (oci-sla-management-poc-ui)
 
@@ -250,7 +251,7 @@ OCI SLA sistem je **značajno bogatiji funkcionalno** od Zabbix SLA:
 | BREACH-RESOLUTION-API-ANALYSIS.md | Breach lifecycle | State Machine sa workflow-om (DETECTED→ACKNOWLEDGED→INVESTIGATING→RESOLVED) | ⚠️ **Backend implementiran** (2026-03-11) — Simple PATCH endpointi (Pristup A). UI ostaje TODO. |
 | EMAIL-RETRY-LOGIC-ANALYSIS.md | Email retry | Scheduled cleanup + exponential backoff | ✅ **Kompletno implementirano** (2026-03-12) — Phase 1: Inline exponential backoff u MailerService (sva 4 implementacije). Phase 2: Scheduled cleanup — EmailSendLog entity, EmailSendLogService, EmailRetryScheduler, SlaNotificationService integracija. |
 | MULTI-INSTANCE-SCHEDULER-ANALYSIS.md | Distributed locking | ShedLock (MySQL-based) | ✅ **Implementirano** — ShedLock sa `@SchedulerLock` na svim scheduled metodama |
-| SLA-REPORTS-SCHEDULER-ANALYSIS.md | Automatsko generisanje izveštaja | Entity + Scheduler + Email delivery | ✅ **Implementirano** (2026-03-11) — SlaReportScheduler + SlaReportSchedulerService + SlaReportGenerationService. Email delivery ostaje TODO. |
+| SLA-REPORTS-SCHEDULER-ANALYSIS.md | Automatsko generisanje izveštaja | Entity + Scheduler + Email delivery | ✅ **Kompletno implementirano** (2026-03-12) — SlaReportScheduler + SlaReportSchedulerService + SlaReportGenerationService. **Email delivery sa PDF/CSV attachmentima** (2026-03-12): EmailAttachmentDto, attachment podrška u SMTP/SendGrid, SlaReportExportService u oci-monitor, SlaNotificationService.sendReportEmail(), SlaReportGenerationService integracija. |
 | SLA_EXCLUDED_DOWNTIME_IMPLEMENTATION.md | Maintenance windows | Full CRUD + overlap validacija | ✅ **Implementirano** — 100% kompletno, backend + frontend |
 | TRANSACTION-BOUNDARIES-ANALYSIS.md | Race condition | @TransactionalEventListener(AFTER_COMMIT) | ✅ **Implementirano** — SlaBreachDetectionService koristi AFTER_COMMIT |
 | WEBHOOK-NOTIFICATIONS-ANALYSIS.md | Webhook podrška | Phase 1 (simple POST + HMAC) | ❌ **Nije implementirano** — Komentarisano u kodu |
