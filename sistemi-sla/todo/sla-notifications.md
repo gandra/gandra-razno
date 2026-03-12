@@ -649,6 +649,7 @@ This is an automated notification from OCI SLA Management.
 
 | Stavka | Opis | Trigger |
 |--------|------|---------|
+| ~~Report email sa PDF/CSV~~ | ~~SlaNotificationService.sendReportEmail() sa PDF/CSV attachmentima iz SlaReportExportService~~ | ✅ **IMPLEMENTIRANO** (2026-03-12) — G-17 |
 | Webhook kanal | SlaNotificationService salje i webhook pored emaila | G-07 implementacija |
 | Per-user read tracking | Zasebna `sla_event_log_read` tabela sa user_id + event_id | Vise korisnika po organizaciji |
 | Cleanup job | Brisanje evenata starijih od 90 dana | Tabela raste >10K redova |

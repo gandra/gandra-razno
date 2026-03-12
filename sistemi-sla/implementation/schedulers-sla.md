@@ -86,7 +86,7 @@ Generiše SLA izveštaje na osnovu konfiguracije iz `SlaReportSchedule` entiteta
 - Koju SLA definition prati
 - Period type izveštaja (DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY)
 - Frekvenciju generisanja (WEEKLY, MONTHLY, QUARTERLY, CUSTOM cron)
-- Email primaoce i PDF/CSV attachment opcije
+- Email primaoce i PDF/CSV attachment opcije (email delivery implementiran — `SlaNotificationService.sendReportEmail()` sa `SlaReportExportService` za PDF/CSV generisanje)
 
 | Metoda | Cron | Konfigurabilno | ShedLock | Toggle |
 |--------|------|---------------|----------|--------|
@@ -240,6 +240,14 @@ SlaReportGenerationService.generateReport(schedule)
     ├─ Build SlaReport entity
     ├─ Build SlaReportBreachSummary per breach
     ├─ Save → Publish
+    ├─ logReportGeneratedEvent() — INSERT sla_event_log
+    ├─ sendReportEmailIfConfigured() — Email delivery sa PDF/CSV attachmentima
+    │   ├─ Check schedule.hasEmailRecipients() && hasEmailAttachments()
+    │   ├─ SlaNotificationService.sendReportEmail(schedule, report)
+    │   │   ├─ SlaReportExportService.exportToPdf() → byte[] attachment
+    │   │   ├─ SlaReportExportService.exportToCsv() → String → byte[] attachment
+    │   │   └─ EmailSendLogService.sendEmailWithPersistence() per recipient
+    │   └─ Catch-and-log — email failure ne prekida report generation
     └─ Update schedule (recordSuccessfulExecution)
 ```
 
