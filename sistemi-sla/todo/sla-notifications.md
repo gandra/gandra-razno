@@ -1,7 +1,7 @@
 # G-16: SLA Notifikacije — UI prikaz + Email obaveštenja
 
 > **Datum**: 2026-03-12
-> **Status**: U implementaciji (Pristup A — Event Log + Scheduled Email)
+> **Status**: Backend implementacija kompletna (Pristup A — Event Log + Scheduled Email). Frontend TODO.
 > **Effort**: 7-9h
 > **Backlog ref**: G-16 u `sla-backlog.md`
 
@@ -497,36 +497,42 @@ Email putem REST ka oci-monitor, bez tabele. Odbačen jer: **ne podržava Z-1 (U
 - `com.sistemisolutions.oci.lib.entity.sla.SlaEventType` — enum sa 7 vrednosti
 - `com.sistemisolutions.oci.lib.entity.sla.SlaEventLog` — standalone entity (BIGINT PK, kao EmailSendLog)
 
-### Korak 3: `SlaEventLogRepository` (oci-api + oci-monitor)
+### Korak 3: `SlaEventLogRepository` (oci-api + oci-monitor) — ✅ DONE
 
-- oci-api: `findByOrganizationIdOrderByCreatedAtDesc`, `findByUuid`, `countByOrganizationIdAndIsDismissedFalse`
-- oci-monitor: `findByEmailNotifiedFalseOrderByCreatedAtAsc`
+- oci-api: `findByOrganizationIdOrderByCreatedAtDesc`, `findByUuid`, `findByOrganizationIdAndIsDismissedFalseOrderByCreatedAtDesc`, `countByOrganizationIdAndIsDismissedFalse`
+- oci-monitor: `findPendingEmailNotifications()` — JPQL query za `emailNotified = false AND recipients IS NOT NULL`
 
-### Korak 4: `SlaEventLogService` (oci-api) — write-side
+### Korak 4: `SlaEventLogService` (oci-api) — write-side — ✅ DONE
 
 - `logEvent(eventType, definition, actor, details)` — INSERT u tabelu
-- `logEvent(eventType, name, orgId, recipients, actor, details)` — overload za slucajeve gde definition vec ne postoji (delete)
+- `logEvent(eventType, uuid, name, orgId, recipients, actor, details)` — overload za slucajeve gde definition vec ne postoji (delete)
+- try/catch wrapper — event logging nikad ne prekida primarnu operaciju
 
-### Korak 5: `SlaNotificationController` (oci-api) — read-side za UI
+### Korak 5: `SlaNotificationController` + `SlaEventLogDto` + `SlaEventLogMapper` (oci-api) — ✅ DONE
 
-- `GET /api/sla/notifications` — lista svih SLA notifikacija za organizaciju
+- `GET /api/sla/notifications` — lista svih SLA notifikacija za organizaciju (paginated)
 - `GET /api/sla/notifications/undismissed` — samo nedismisovane
 - `GET /api/sla/notifications/undismissed/count` — za badge
 - `PATCH /api/sla/notifications/{uuid}/dismiss` — dismiss
+- Authorization: `AuthHelper.getCurrentUserPrincipal().getUser().getOrganization().getId()`
+- MapStruct mapper: `SlaEventLogMapper` sa UUID-to-String mappings
 
-### Korak 6: `SlaEventNotificationScheduler` (oci-monitor)
+### Korak 6: `SlaEventNotificationScheduler` (oci-monitor) — ✅ DONE
 
-- `@Scheduled(fixedDelay=60000)` + `@SchedulerLock` + `SchedulerToggleService`
-- Cita pending evente, gradi email, salje putem `SlaNotificationService.sendEventNotification()`
-- Markira kao `emailNotified = true`
+- `@Scheduled(fixedDelayString = "${sla.event.notification.scheduler.interval-ms:300000}")` — svaki 5 min
+- `@SchedulerLock(name = "sla-event-notification-scheduler", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")`
+- `schedulerToggleService.isTaskEnabled("sla.event.notification.scheduled")`
+- Cita pending evente, poziva `SlaNotificationService.sendEventNotification()`, markira `emailNotified = true`
+- Per-event error handling — neuspeh jednog eventa ne zaustavlja batch
 
-### Korak 7: Dodati `sendEventNotification(SlaEventLog)` u `SlaNotificationService` (oci-monitor)
+### Korak 7: `sendEventNotification(SlaEventLog)` u `SlaNotificationService` (oci-monitor) — ✅ DONE
 
-- Prima SlaEventLog, gradi subject/body, iterira recipients
+- Prima SlaEventLog, gradi subject/body per eventType, iterira recipients
 - Poziva `EmailSendLogService.sendEmailWithPersistence()` per recipient
 - Source: `"SLA_EVENT_" + eventType.name()`
+- Helper metode: `buildEventEmailSubject()`, `buildEventEmailBody()`
 
-### Korak 8: Pozivi u servisni sloj (oci-api + oci-monitor)
+### Korak 8: Pozivi u servisni sloj (oci-api + oci-monitor) — ✅ DONE
 
 | Servis | Modul | Metod | Poziv |
 |--------|-------|-------|-------|

@@ -42,6 +42,7 @@ VREME     SCHEDULER                              ŠTA RADI
 00:15     SlaScheduler.scheduleMonthlySlas()      Mesečna SLA computation (samo 1. u mesecu)
 00:30     SlaReportScheduler.processScheduledReports()  Generisanje izveštaja (svaki dan)
 ~5min     EmailRetryScheduler.processFailedEmails()    Retry failed emailova (svaki 5 min)
+~5min     SlaEventNotificationScheduler.processEventNotifications()  Email za SLA evente (svaki 5 min)
 ```
 
 **Redosled je bitan**: SlaReportScheduler mora da se izvršava POSLE SlaScheduler-a jer koristi prethodno izračunate SlaResult zapise za generisanje izveštaja.
@@ -157,6 +158,34 @@ Retry 5:  T+9h20min   (5 × 3^4 = 360min = 6h cap)
 
 ---
 
+### 4. SlaEventNotificationScheduler — SLA Event Email Notifications
+
+**Fajl**: `oci-monitor/scheduler/SlaEventNotificationScheduler.java`
+
+Šalje email notifikacije za SLA lifecycle evente (deactivate, delete, breach acknowledge/resolve, schedule status, report generated). Čita iz `sla_event_log` tabele zapise gde `email_notified = false` i šalje email putem `SlaNotificationService.sendEventNotification()` → `EmailSendLogService.sendEmailWithPersistence()`.
+
+| Metoda | Interval | Konfigurabilno | ShedLock | Toggle |
+|--------|----------|---------------|----------|--------|
+| `processEventNotifications()` | `${sla.event.notification.scheduler.interval-ms:300000}` (5 min) | Da, via props | lockAtMost=10min, lockAtLeast=1min | `sla.event.notification.scheduled` |
+
+**Delegacija**: `SlaEventNotificationScheduler` → `SlaNotificationService.sendEventNotification(SlaEventLog)` → `EmailSendLogService.sendEmailWithPersistence()` (per recipient)
+
+**Logika obrade**:
+1. Pronalazi sve zapise iz `sla_event_log` gde `email_notified = false AND recipients IS NOT NULL AND recipients <> ''` (oldest first)
+2. Za svaki event: poziva `SlaNotificationService.sendEventNotification(event)` koji iterira recipients
+3. Markira `emailNotified = true`, `emailNotifiedAt = now()` posle uspešnog slanja
+4. Per-event error handling — neuspeh jednog eventa ne zaustavlja batch
+
+**Izvori evenata**:
+- oci-api: `SlaEventLogService.logEvent()` — za SLA_DEACTIVATED, SLA_DELETED, BREACH_ACKNOWLEDGED, BREACH_RESOLVED, SCHEDULE_ACTIVATED, SCHEDULE_DEACTIVATED
+- oci-monitor: `SlaReportGenerationService.logReportGeneratedEvent()` — za REPORT_GENERATED
+
+**Tabela**: `sla_event_log` (Flyway dev V14, prod V8)
+**Entity**: `SlaEventLog` (oci-library, standalone, BIGINT PK)
+**Servis**: `SlaNotificationService.sendEventNotification(SlaEventLog)` — gradi subject/body per eventType
+
+---
+
 ## Data Flow
 
 ### SLA Computation Flow
@@ -216,6 +245,40 @@ SlaReportGenerationService.generateReport(schedule)
 
 ---
 
+### SLA Event Notification Flow
+
+```
+oci-api (user actions)                    sla_event_log               oci-monitor (scheduler)
+──────────────────────                    ─────────────               ───────────────────────
+
+SlaService.deactivate/delete/                  │
+  acknowledge/resolve()                        │
+    │                                          │
+    └── SlaEventLogService.logEvent()          │
+        │                                      │
+        └── INSERT ──────────────────────────► │
+            (emailNotified = false)            │
+                                               │         SlaEventNotificationScheduler
+SlaReportScheduleManagementService             │         @Scheduled(fixedDelay=5min)
+  .updateScheduleStatus()                      │                │
+    │                                          │                ▼
+    └── SlaEventLogService.logEvent()          │         findPendingEmailNotifications()
+        │                                      │                │
+        └── INSERT ──────────────────────────► │◄── SELECT ─────┤
+                                               │                │
+SlaReportGenerationService (oci-monitor)       │                ▼ per event:
+  .generateReport()                            │         SlaNotificationService
+    │                                          │          .sendEventNotification()
+    └── slaEventLogRepository.save()           │                │
+        │                                      │                ▼
+        └── INSERT ──────────────────────────► │         EmailSendLogService
+                                               │          .sendEmailWithPersistence()
+                                               │                │
+                                               │◄── UPDATE ─────┤
+                                               │    emailNotified│
+                                               │    = true       │
+```
+
 ### Email Retry Flow (Phase 1 + Phase 2)
 
 ```
@@ -274,6 +337,9 @@ email.retry.scheduled.base-delay-minutes=5
 email.retry.scheduled.multiplier=3.0
 email.retry.scheduled.max-delay-minutes=360
 email.retry.scheduler.interval-ms=300000
+
+# SLA Event Notification Scheduler — email for SLA lifecycle events
+sla.event.notification.scheduler.interval-ms=300000
 ```
 
 ### scheduler_settings tabela
@@ -289,6 +355,9 @@ INSERT INTO scheduler_settings (scheduler_task_name, is_enabled) VALUES ('sla.re
 
 -- Email Retry toggle
 INSERT INTO scheduler_settings (scheduler_task_name, is_enabled) VALUES ('email.retry.scheduled', true);
+
+-- SLA Event Notification toggle
+INSERT INTO scheduler_settings (scheduler_task_name, is_enabled) VALUES ('sla.event.notification.scheduled', true);
 ```
 
 ---
@@ -307,6 +376,9 @@ SlaReportScheduler::            — Report scheduler lifecycle
 === Email Retry Scheduler ===   — Email retry batch
 EMAIL RETRY EXHAUSTED:          — ALERT: email propao posle svih retry-eva
 ALERT: N email(s) have exhausted — Batch alert za MAX_RETRIES_REACHED
+=== SLA Event Notification === — SLA event notification batch
+SLA event notification sent     — Uspešno poslata notifikacija
+SLA event notification has no   — Event nema recipients, skip email
 ```
 
 ### Batch summary log format

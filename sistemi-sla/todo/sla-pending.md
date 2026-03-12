@@ -92,6 +92,7 @@
 | V8 | Scheduler settings | ✅ |
 | V10 | Report tabele (report, report_schedule, report_breach_summary) | ✅ |
 | V12 | Email send log tabela (Phase 2 email retry) | ✅ |
+| V14 | SLA event log tabela + scheduler seed (G-16 notifikacije) | ✅ |
 
 **Prod profil** (`oci-api/src/main/resources/db/migration/prod/`):
 
@@ -99,6 +100,7 @@
 |-----------|------|--------|
 | V1-V5 | Init, data, users, org/tenant, notif/reports | ✅ |
 | V6 | Email send log tabela (Phase 2 email retry) | ✅ |
+| V8 | SLA event log tabela + scheduler seed (G-16 notifikacije) | ✅ |
 
 ---
 
@@ -178,7 +180,7 @@ Neispunjeno:        0/19 (0%)
 | G-11 | ~~Advanced filtering~~ | Frontend | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Client-side filtering na SlaListPage (search by name, status, period type) i SlaReportScheduleListPage (search by name, status, frequency). useMemo + Clear filters dugme. Integrisano sa pagination. |
 | G-12 | ~~Manual recomputation improvements~~ | ~~Backend~~ | ~~3-4h~~ | ✅ **UI IMPLEMENTIRAN** (2026-03-11): Poboljšan trigger dialog — date range inputi (periodStart/periodEnd), force recompute checkbox, default period po periodType, detaljni prikaz rezultata. Dry-run/async batch ostaje za Phase 2. |
 | G-12b | Manual recomputation Phase 2 | Backend | 8-12h | **BACKLOG**: Backend dry-run (`dryRun` field u DTO + skip save logika), async batch job (`sla_batch_job` tabela + `@Async` servis + polling endpoint), progress tracking, cancellation support. Ref: `MANUAL-SLA-RECOMPUTATION-ANALYSIS.md` Pristup 1 komplet + Pristup 2. |
-| G-16 | Notifikacije za bitne evente | Backend | 4-6h | **BACKLOG**: Email/webhook notifikacije za: delete SLA definition, breach acknowledge/resolve, schedule activate/deactivate, report generation complete. Event-driven pattern (`ApplicationEventPublisher`). |
+| G-16 | ~~Notifikacije za bitne evente~~ | ~~Backend~~ | ~~7-9h~~ | ✅ **BACKEND KOMPLETNO IMPLEMENTIRANO** (2026-03-12): `sla_event_log` tabela, `SlaEventType` enum (7 vrednosti), `SlaEventLog` entity, `SlaEventLogService` (write-side, oci-api), `SlaNotificationController` (read-side REST, oci-api), `SlaEventNotificationScheduler` (email scheduler, oci-monitor), `SlaNotificationService.sendEventNotification()` (email via EmailSendLogService). logEvent pozivi u SlaService (deactivate, delete, acknowledge, resolve), SlaReportScheduleManagementService (schedule status), SlaReportGenerationService (report generated). Flyway: dev V14, prod V8. **Frontend TODO**: NotificationBell, NotificationDropdown, NotificationListPage u oci-sla-management-poc-ui. |
 | G-13 | ~~Cron expression builder~~ | ~~Frontend~~ | ~~4h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): Reusable `CronExpressionBuilder` komponenta sa 6 preset-a, 5 field selektora, human-readable opisom, manual input toggle. Integrisano u SlaReportScheduleFormPage. |
 | G-14 | ~~SLA istorijat timeline~~ | ~~Frontend~~ | ~~6-8h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `SlaTimelinePage` (`/sla/timeline`) sa Chart.js Line chartom za compliance trend. `SlaTimelineChart` komponenta — target linija (dashed), status-colored tačke (zelena/žuta/crvena), gradient fill, tooltip sa period/status/data points. `SlaResultDto` tip, `slaResultService` (koristi postojeći `GET /sla/results/definition/{id}`). Summary kartice (avg/min/max compliance, breach count, violation minutes). Tabela svih rezultata sortiranih po periodu. "Timeline" tab u navigaciji. |
 | G-15 | ~~Stored Report management UI~~ | ~~Frontend~~ | ~~4-6h~~ | ✅ **IMPLEMENTIRANO** (2026-03-11): `StoredSlaReportListPage` sa tabelom (report name, SLA name, period, compliance%, breaches, status), download PDF/CSV (blob), archive (optimistic update), delete (confirmation dialog). `storedSlaReportService` (6 metoda). Filtering (search + status + breaches) + pagination. Nav tab. |
