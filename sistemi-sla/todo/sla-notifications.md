@@ -1,7 +1,7 @@
 # G-16: SLA Notifikacije — UI prikaz + Email obaveštenja
 
 > **Datum**: 2026-03-12
-> **Status**: Backend implementacija kompletna (Pristup A — Event Log + Scheduled Email). Frontend TODO.
+> **Status**: Kompletno (Backend + Frontend). Pristup A — Event Log + Scheduled Email.
 > **Effort**: 7-9h
 > **Backlog ref**: G-16 u `sla-backlog.md`
 
@@ -567,9 +567,9 @@ Email putem REST ka oci-monitor, bez tabele. Odbačen jer: **ne podržava Z-1 (U
 
 ---
 
-## 7. Frontend plan
+## 7. Frontend plan — ✅ DONE
 
-### 8.1 oci-sla-management-poc-ui
+### 8.1 oci-sla-management-poc-ui — ✅ DONE
 
 **Samo SLA notifikacije** — header dropdown sa jednim tipom.
 
@@ -596,16 +596,19 @@ Email putem REST ka oci-monitor, bez tabele. Odbačen jer: **ne podržava Z-1 (U
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-Komponente:
-- `NotificationBell` — ikona sa badge-om (undismissed count)
-- `NotificationDropdown` — lista poslednjih N notifikacija
-- `NotificationListPage` — `/sla/notifications` — full page sa svim notifikacijama, pagination, filtering
-- `slaNotificationService` — API pozivi (`getNotifications`, `getUndismissed`, `getUndismissedCount`, `dismiss`)
+Komponente (✅ implementirano):
+- `NotificationBell` — ikona sa badge-om (undismissed count), dropdown sa poslednjih 10, dismiss, "View all" link. Polling svakih 60s za count. Click-outside-to-close.
+- `SlaNotificationListPage` — `/sla/notifications` — full page sa tabelom, pagination (`usePagination`), 3 filtera (search, event type, dismissed status), dismiss akcija, event type badges sa bojama, "Refresh" dugme.
+- `slaNotificationService` — 4 API metode: `getNotifications(limit)`, `getUndismissed()`, `getUndismissedCount()`, `dismiss(uuid)`
+- `slaNotification.types.ts` — `SlaNotificationDto` interface + `SlaEventType` union type
+- API rute u `constants.ts`: `SlaNotification.List/Undismissed/UndismissedCount/Dismiss`
+- Ruta `/sla/notifications` u `App.tsx`
+- `NotificationBell` dodat u `SlaNavigation.tsx` (desna strana, pre Logout dugmeta)
 
 API pozivi:
-- `GET /api/sla/notifications/undismissed/count` — za badge (polling svaki 60s ili pri navigaciji)
+- `GET /api/sla/notifications/undismissed/count` — za badge (polling svaki 60s)
 - `GET /api/sla/notifications/undismissed` — za dropdown (lazy load on open)
-- `GET /api/sla/notifications?limit=50` — za full page
+- `GET /api/sla/notifications?limit=200` — za full page
 - `PATCH /api/sla/notifications/{uuid}/dismiss` — za dismiss
 
 ### 8.2 Integracija u oci-ui (UI team)
