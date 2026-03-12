@@ -17,18 +17,18 @@ OCI UI ima 4 tipa notifikacija, dostupnih kroz "Notifikacije" dropdown u navigac
 ┌─────────────────────────────────────────────────────────┐
 │  Notifikacije ▼                                          │
 │  ┌───────────────────────────────────────────────────┐  │
-│  │ 📊 Notifikacije metrike                           │  │
-│  │    Praćenje i izveštavanje stanja metrika.         │  │
-│  │    Uključuje metrički pražni probitak notifikacije │  │
+│  │  Notifikacije metrike                              │  │
+│  │    Pracenje i izvestavanje stanja metrika.          │  │
+│  │    Ukljucuje metricki prazni probitak notifikacije  │  │
 │  │                                                    │  │
-│  │ 🔔 SC Notifikacije                                │  │
-│  │    Pregled i kreiranje SC Notifikacija             │  │
+│  │  SC Notifikacije                                   │  │
+│  │    Pregled i kreiranje SC Notifikacija              │  │
 │  │                                                    │  │
-│  │ 💰 Budžet notifikacije                             │  │
-│  │    Pregled i kreiranje budžet notifikacija         │  │
+│  │  Budzet notifikacije                               │  │
+│  │    Pregled i kreiranje budzet notifikacija          │  │
 │  │                                                    │  │
-│  │ 🏢 Kompartment notifikacije                        │  │
-│  │    Pregled i kreiranje notifikacija za             │  │
+│  │  Kompartment notifikacije                          │  │
+│  │    Pregled i kreiranje notifikacija za              │  │
 │  │    odabrane kompartmente                           │  │
 │  └───────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
@@ -38,14 +38,14 @@ OCI UI ima 4 tipa notifikacija, dostupnih kroz "Notifikacije" dropdown u navigac
 
 | UI labela | Backend tip | Entities | Controller (oci-api) | Scheduler (oci-monitor) | Event | Notification Service (oci-monitor) |
 |---|---|---|---|---|---|---|
-| **Notifikacije metrike** | Metric threshold alerts | MetricNotification, MetricNotificationReports, MetricNotificationVerification | MetricNotificationController | OciNotificationMetricsSchedulerService | MetricsNotificationEvent | MetricsNotificationEventListener (direktno šalje email) |
+| **Notifikacije metrike** | Metric threshold alerts | MetricNotification, MetricNotificationReports, MetricNotificationVerification | MetricNotificationController | OciNotificationMetricsSchedulerService | MetricsNotificationEvent | MetricsNotificationEventListener (direktno salje email) |
 | **SC Notifikacije** | Subscription/Commitment alerts | SCNotification, SCNotificationReports, SCNotificationVerification | SCNotificationController | OciNotificationSCSchedulerService | CommitmentNotificationEvent, SubscriptionNotificationEvent | CommitmentNotificationService, SubscriptionNotificationService |
-| **Budžet notifikacije** | Budget threshold alerts | BudgetNotification, BudgetNotificationReports, BudgetNotificationValue, BudgetNotificationVerification | BudgetNotificationController | OciNotificationBudgetSchedulerService | BudgetNotificationEvent | BudgetNotificationService |
+| **Budzet notifikacije** | Budget threshold alerts | BudgetNotification, BudgetNotificationReports, BudgetNotificationValue, BudgetNotificationVerification | BudgetNotificationController | OciNotificationBudgetSchedulerService | BudgetNotificationEvent | BudgetNotificationService |
 | **Kompartment notifikacije** | Compartment budget alerts | BudgetCompartment, BudgetCompartmentReports, BudgetCompartmentValue, BudgetCompartmentEmail | *(nema dedikovanog kontrolera)* | OciNotificationBudgetCompartmentSchedulerService | BudgetCompartmentEvent | BudgetCompartmentService |
 
-### 1.3 Zajednički pattern: Scheduler → Event → Listener → NotificationService → MailerService
+### 1.3 Zajednicki pattern: Scheduler → Event → Listener → NotificationService → MailerService
 
-Svi OCI notification tipovi prate isti arhitekturalni pattern. Korisnik kreira notifikacionu konfiguraciju (pravilo) kroz oci-api REST endpoint, a oci-monitor scheduler periodično proverava uslove i šalje obaveštenja.
+Svi OCI notification tipovi prate isti arhitekturalni pattern:
 
 ```
 oci-api (Port 8080)                          oci-monitor (Port 8081)
@@ -74,13 +74,14 @@ oci-api (Port 8080)                          oci-monitor (Port 8081)
                                              .sendTextEmail() / .sendHtmlEmail()
 ```
 
-**Ključne karakteristike postojećeg patterna:**
-- **oci-api** — samo CRUD operacije nad notification konfiguracijama (create, list, delete)
+**Kljucne karakteristike postojeceg patterna:**
+- **oci-api** — samo CRUD operacije nad notification konfiguracijama
 - **oci-monitor** — sva logika za evaluaciju uslova i slanje emailova
-- **ApplicationEvent** — decoupling između scheduler-a i notification servisa
+- **ApplicationEvent** — decoupling izmedju scheduler-a i notification servisa
 - **ApplicationListener** — sinhroni (ne `@Async`, ne `@TransactionalEventListener`)
 - **Mute mehanizam** — svaki notification tip ima Verification entitet sa `verificationCode` za mute-me/mute-all linkove u emailu
 - **Dual email provider** — SMTP i SendGrid, istovremeno aktivan samo jedan (`email.provider` property)
+- **Inline retry (Phase 1)** — exponential backoff u MailerService (3 pokusaja, ~20s)
 
 ---
 
@@ -99,7 +100,7 @@ oci-api (Port 8080)                          oci-monitor (Port 8081)
 | `CostReportsEvent` | oci-monitor | message, costReportsNotificationStatus, CostReports (source) | OciCostSchedulerService | CostReportsEventListener |
 | **`SlaResultComputedEvent`** | oci-monitor | **slaResultId (UUID)** | SlaComputationService | SlaBreachDetectionService |
 
-**Važno**: Svi OCI eventi nose ceo entity objekat kao `source` u ApplicationEvent. Jedini izuzetak je `SlaResultComputedEvent` koji nosi samo UUID — to je namerni pattern jer se listener izvršava u drugoj transakciji (`AFTER_COMMIT`) pa entity mora biti ponovo učitan iz baze.
+**Vazno**: Svi OCI eventi nose ceo entity objekat kao `source` u ApplicationEvent. Jedini izuzetak je `SlaResultComputedEvent` koji nosi samo UUID — namerni pattern jer se listener izvrsava u drugoj transakciji (`AFTER_COMMIT`) pa entity mora biti ponovo ucitan iz baze.
 
 ### 2.2 Listener pattern razlike
 
@@ -108,8 +109,8 @@ oci-api (Port 8080)                          oci-monitor (Port 8081)
 | **Interfejs** | `implements ApplicationListener<XxxEvent>` | `@TransactionalEventListener(AFTER_COMMIT)` |
 | **Async** | Sinhroni (u istom thread-u) | `@Async` (thread pool: sla-async-*) |
 | **Transakcija** | U transakciji publisher-a | Posle commit-a publisher-a |
-| **Error handling** | Greška u listener-u može rollback-ovati publisher | Greška je izolirana (AFTER_COMMIT) |
-| **Use case** | Notification reports sa statusom koji se ažurira | Breach detekcija gde rezultat mora biti persistiran |
+| **Error handling** | Greska u listener-u moze rollback-ovati publisher | Greska je izolovana (AFTER_COMMIT) |
+| **Use case** | Notification reports sa statusom koji se azurira | Breach detekcija gde rezultat mora biti persistiran |
 
 ### 2.3 MailerService — 4 implementacije (2 per modul)
 
@@ -119,35 +120,23 @@ oci-api/                                    oci-monitor/
 │   ├── MailerService (interface)           │   ├── MailerService (interface)
 │   ├── SmtpMailerService                   │   ├── SmtpMailerService
 │   │   @ConditionalOnProperty(             │   │   @ConditionalOnProperty(
-│   │     prefix="email",                   │   │     prefix="email",
-│   │     name="provider",                  │   │     name="provider",
 │   │     havingValue="smtp",               │   │     havingValue="smtp",
 │   │     matchIfMissing=true)              │   │     matchIfMissing=true)
 │   └── SendGridMailerService               │   └── SendGridMailerService
 │       @ConditionalOnProperty(             │       @ConditionalOnProperty(
-│         prefix="email",                   │         prefix="email",
-│         name="provider",                  │         name="provider",
 │         havingValue="sendgrid")           │         havingValue="sendgrid")
 ```
 
-**Interface:**
-```java
-public interface MailerService {
-    EmailSendResponseDto sendTextEmail(SendEmailRequestDto request);
-    EmailSendResponseDto sendHtmlEmail(SendEmailRequestDto request);
-}
-```
-
-**Inline retry (Phase 1)** — oba implementacija koriste exponential backoff:
-- `email.retry.max-attempts=3` (default)
-- `email.retry.base-delay-ms=5000` (5 sekundi)
+**Inline retry (Phase 1)** — obe implementacije koriste exponential backoff:
+- `email.retry.max-attempts=3`
+- `email.retry.base-delay-ms=5000`
 - `email.retry.multiplier=3.0`
-- `email.retry.max-delay-ms=45000` (45 sekundi)
-- Timeline: pokušaj 1 → 5s pauza → pokušaj 2 → 15s pauza → pokušaj 3 (~20s ukupno)
+- `email.retry.max-delay-ms=45000`
+- Timeline: pokusaj 1 → 5s pauza → pokusaj 2 → 15s pauza → pokusaj 3 (~20s ukupno)
 
-### 2.4 SLA Notification Flow (trenutni)
+### 2.4 SLA Notification Flow (trenutni — production)
 
-SLA notifikacije imaju jedinstven flow u sistemu — jedini tip koji koristi `EmailSendLogService` za persistent retry.
+SLA notifikacije koriste `EmailSendLogService` za persistent retry — jedini tip notifikacija u sistemu sa Phase 2 zastitom.
 
 ```
 SlaComputationService.computeSla()
@@ -168,11 +157,11 @@ SlaBreachDetectionService.onSlaResultComputed()
     │
     ├── detectAndCreateBreach(slaResult):
     │   ├── calculateSeverity()
-    │   │   ├── deviation ≥ 5%  → CRITICAL
-    │   │   ├── deviation ≥ 3%  → HIGH
-    │   │   ├── deviation ≥ 1%  → MEDIUM
+    │   │   ├── deviation >= 5%  → CRITICAL
+    │   │   ├── deviation >= 3%  → HIGH
+    │   │   ├── deviation >= 1%  → MEDIUM
     │   │   └── deviation < 1%  → LOW
-    │   ├── calculateDeviation() → (target - actual) / target × 100
+    │   ├── calculateDeviation() → (target - actual) / target * 100
     │   ├── generateBreachDescription()
     │   └── Save SlaBreach entity
     │
@@ -180,119 +169,58 @@ SlaBreachDetectionService.onSlaResultComputed()
             │
             ├── SlaNotificationService.sendEmailNotification(breach, recipients)
             │   │
-            │   ├── Build subject: "[CRITICAL] SLA Breach - Production API"
-            │   ├── Build body: SLA name, period, status, severity,
-            │   │   target/actual compliance, deviation, duration, description
-            │   │
             │   └── Per recipient:
             │       └── EmailSendLogService.sendEmailWithPersistence(request, false, "SLA_BREACH", breachId)
             │           │
-            │           ├── Phase 1: MailerService.sendTextEmail() — 3 inline pokušaja
+            │           ├── Phase 1: MailerService.sendTextEmail() — 3 inline pokusaja (~20s)
             │           │   ├── SUCCESS → return response
             │           │   └── ALL FAILED → logFailedSend() → save to email_send_log (FAILED)
             │           │
             │           └── Phase 2: EmailRetryScheduler (svaki 5 min)
             │               └── EmailSendLogService.processRetryableEmails()
             │                   ├── SUCCESS → markSent()
-            │                   └── FAIL → recordFailedAttempt() → backoff
-            │                       └── retry_count ≥ max_retries → MAX_RETRIES_REACHED + log.error
+            │                   └── FAIL → backoff → MAX_RETRIES_REACHED → log.error alert
             │
             └── SlaNotificationService.sendWebhookNotification(breach, webhookUrl)
                 └── MOCK — samo loguje (TODO: G-07)
 ```
 
-### 2.5 Scheduled Email Retry (Phase 2) — detalji
-
-**Implementirano u G-06** (2026-03-12). Ova infrastruktura je dostupna za G-16.
+### 2.5 Email Retry infrastruktura (Phase 1 + Phase 2)
 
 | Komponenta | Lokacija | Uloga |
 |---|---|---|
-| `EmailSendLog` entity | oci-library | BIGINT PK, standalone (ne BaseEntity). Polja: recipient, subject, body, isHtml, status, retryCount, maxRetries, nextRetryAt, errorMessage, source, sourceEntityId |
-| `EmailSendStatus` enum | oci-library | PENDING, SENT, FAILED, MAX_RETRIES_REACHED. Helper metode: `isRetryable()`, `isTerminal()` |
-| `EmailSendLogRepository` | oci-monitor | `findRetryableEmails(now)` — PENDING/FAILED + nextRetryAt ≤ now + retryCount < maxRetries |
-| `EmailSendLogService` | oci-monitor | `sendEmailWithPersistence()` — wrapper oko MailerService. `processRetryableEmails()` — batch retry |
-| `EmailRetryScheduler` | oci-monitor | `@Scheduled(fixedDelay=5min)` + `@SchedulerLock` + `SchedulerToggleService("email.retry.scheduled")` |
-| `email_send_log` tabela | Flyway dev V12, prod V6 | MySQL tabela sa indeksima za retry queries |
+| `EmailSendLog` entity | oci-library | BIGINT PK, standalone. Polja: recipient, subject, body, isHtml, status, retryCount, maxRetries, nextRetryAt, errorMessage, source, sourceEntityId |
+| `EmailSendStatus` enum | oci-library | PENDING, SENT, FAILED, MAX_RETRIES_REACHED |
+| `EmailSendLogRepository` | oci-monitor | `findRetryableEmails(now)` — PENDING/FAILED + nextRetryAt <= now + retryCount < maxRetries |
+| `EmailSendLogService` | oci-monitor | `sendEmailWithPersistence()` + `processRetryableEmails()` |
+| `EmailRetryScheduler` | oci-monitor | `@Scheduled(fixedDelay=5min)` + `@SchedulerLock` + `SchedulerToggleService` |
+| `email_send_log` tabela | Flyway dev V12, prod V6 | MySQL tabela |
 
-**Scheduled retry backoff** (exponential, konfigurabilno):
+**Scheduled retry backoff:**
 ```
-Retry 1:  T+5min      (5 × 3^0)
-Retry 2:  T+20min     (5 × 3^1 = 15min later)
-Retry 3:  T+1h5min    (5 × 3^2 = 45min later)
-Retry 4:  T+3h20min   (5 × 3^3 = 135min later)
-Retry 5:  T+9h20min   (5 × 3^4 = 360min = 6h cap)
+Retry 1:  T+5min      (5 * 3^0)
+Retry 2:  T+20min     (5 * 3^1 = 15min later)
+Retry 3:  T+1h5min    (5 * 3^2 = 45min later)
+Retry 4:  T+3h20min   (5 * 3^3 = 135min later)
+Retry 5:  T+9h20min   (5 * 3^4 = 360min = 6h cap)
 ```
 
 **Trenutni consumeri**: samo `SlaNotificationService` (source=`"SLA_BREACH"`).
 
-### 2.6 OCI Notification Flow primeri
+### 2.6 Cross-module komunikacija
 
-#### Budget Notification Flow
-```
-OciNotificationBudgetSchedulerService (@Scheduled)
-    │ Provera: budget threshold prekoračen?
-    ▼
-applicationEventPublisher.publishEvent(new BudgetNotificationEvent(...))
-    │
-    ▼
-BudgetNotificationEventListener.onApplicationEvent()
-    │
-    ▼
-BudgetNotificationService.notifyBudgetNotificationReports()
-    │ Provera: already muted?
-    │ Iteracija: BudgetNotificationVerification records
-    │ Build HTML email sa mute-me/mute-all linkovima
-    ▼
-MailerService.sendHtmlEmail()      ← direktno, bez EmailSendLogService
-```
+oci-api i oci-monitor su **zasebni procesi** sa zasebnim Spring context-ima. Komunikacija:
 
-#### SC (Commitment + Subscription) Notification Flow
-```
-OciNotificationSCSchedulerService (@Scheduled)
-    │ Provera: commitment/subscription threshold?
-    ├── publishEvent(CommitmentNotificationEvent)
-    └── publishEvent(SubscriptionNotificationEvent)
-            │
-            ▼
-CommitmentNotificationEventListener / SubscriptionNotificationEventListener
-    │
-    ▼
-CommitmentNotificationService / SubscriptionNotificationService
-    │ Build text/html email, mute linkovi, affected resources
-    ▼
-MailerService.sendTextEmail() / sendHtmlEmail()     ← direktno
-```
+1. **Shared DB** — oba modula citaju/pisu istu MySQL bazu (entiteti u oci-library)
+2. **REST poziv** — oci-api poziva oci-monitor putem `MonitorApiService` (RestTemplate)
+3. **Spring events** — rade samo unutar jednog procesa, ne propagiraju se cross-module
 
-#### Cost Reports Flow (error notification)
-```
-OciCostSchedulerService (@Scheduled)
-    │ Error prilikom download/parse cost fajla
-    ▼
-applicationEventPublisher.publishEvent(new CostReportsEvent(status=DOWNLOAD/PARSE))
-    │
-    ▼
-CostReportsEventListener → CostReportsService.notifyCostReports()
-    │ Error email sa retry count + environment info
-    ▼
-MailerService.sendHtmlEmail()     ← to support email
-```
+Za G-16 ovo je kljucno pitanje jer:
+- **User akcije** (deactivate, delete, acknowledge, resolve, schedule status) se izvrsavaju u **oci-api**
+- **SlaNotificationService** i **EmailSendLogService** zive u **oci-monitor**
+- Report generated event se izvrsava u **oci-monitor** (lokalno)
 
-### 2.7 Razlike između OCI i SLA notifikacija
-
-| Aspekt | OCI notifikacije | SLA notifikacije |
-|---|---|---|
-| **Konfiguracija** | Korisnik kreira pravilo (threshold, recipients) | Recipient emails u SlaDefinition |
-| **Trigger** | Scheduler periodično evaluira uslove | Event-driven (SlaResultComputedEvent → breach detection) |
-| **Mute** | Da — verification code sa mute-me/mute-all linkovima | Ne — nema mute mehanizma |
-| **Retry** | Phase 1 samo (inline u MailerService) | Phase 1 + Phase 2 (EmailSendLogService, persistent) |
-| **Email format** | HTML sa linkovima na frontend + mute linkovi | Plain text sa SLA metrikama |
-| **Listener tip** | `ApplicationListener<T>` (sinhroni) | `@TransactionalEventListener(AFTER_COMMIT)` + `@Async` |
-| **Notification Reports** | Da — *NotificationReports entity prati status | Ne — samo SlaBreach.notificationSent flag |
-| **Duplikat slanje** | Da — muted flag sprečava | Da — breach already exists check |
-
-### 2.8 Kompletna scheduler infrastruktura (14 schedulera)
-
-Za kontekst — svi scheduleri u oci-monitor sa ShedLock distributed locking:
+### 2.7 Kompletna scheduler infrastruktura (15 schedulera)
 
 ```
 VREME/INTERVAL    SCHEDULER                                           TOGGLE KEY
@@ -314,23 +242,11 @@ svaki sat         OciAggregateTenantConsumptionSchedulerService          aggrega
 svaki 5min        EmailRetryScheduler.processFailedEmails()             email.retry.scheduled
 ```
 
-### 2.9 MonitorApiService — inter-modul komunikacija
-
-`oci-api` komunicira sa `oci-monitor` putem REST poziva (RestTemplate). Relevantno za SLA:
-
-```java
-// MonitorApiService u oci-api — poziva oci-monitor endpoint
-triggerSlaComputation(SlaComputationRequestDTO request)
-    → POST /monitoring/sla/trigger
-```
-
-Ovo je jedini cross-module poziv za SLA. Za G-16 notifikacije, pitanje je: da li notifikacije treba slati iz oci-api (gde se izvršava user akcija) ili iz oci-monitor (gde živi SlaNotificationService)?
-
 ---
 
 ## 3. Trenutno stanje SLA notifikacija
 
-### 3.1 Postojeća SLA event arhitektura
+### 3.1 Postojeca SLA event arhitektura
 
 Sistem ima **1 SLA ApplicationEvent** i **1 listener** (+ EmailRetryScheduler):
 
@@ -357,7 +273,7 @@ SlaBreachDetectionService                  @Async + @TransactionalEventListener(
 
 Od ukupno 56 endpointa, **14 menja stanje** i potencijalno treba notifikaciju:
 
-| Kategorija | Operacija | Endpoint | Modul | Prioritet notifikacije |
+| Kategorija | Operacija | Endpoint | Modul | Prioritet |
 |---|---|---|---|---|
 | **SLA Definition** | Kreiranje | POST `/definitions` | oci-api | Nizak |
 | | Izmena | PUT `/definitions/{id}` | oci-api | Nizak |
@@ -374,11 +290,9 @@ Od ukupno 56 endpointa, **14 menja stanje** i potencijalno treba notifikaciju:
 | **Execution** | Manual trigger | POST `/trigger` | oci-api→oci-monitor | Nizak |
 | | Archive report | POST `/reports/{id}/archive` | oci-api | Nizak |
 
-**Napomena**: Sve user-initiated operacije se izvršavaju u oci-api, dok se SLA computation i breach detection izvršavaju u oci-monitor.
-
 ### 3.3 Prioritetni eventi za Phase 1
 
-Na osnovu poslovnog uticaja, **6 evenata** je najvažnije:
+Na osnovu poslovnog uticaja, **6 evenata** je najvaznije:
 
 ```
  VISOK PRIORITET                         SREDNJI PRIORITET
@@ -392,18 +306,19 @@ Na osnovu poslovnog uticaja, **6 evenata** je najvažnije:
                                           └──────────────────────────────┘
 ```
 
-### 3.4 Postojeća infrastruktura za reuse
+### 3.4 Postojeca infrastruktura za reuse
 
-| Komponenta | Lokacija | Status | Napomena |
-|---|---|---|---|
-| `ApplicationEventPublisher` | SlaComputationService | Radi | Publishuje SlaResultComputedEvent |
-| `SlaNotificationService` | oci-monitor | Radi | `sendEmailNotification()` — koristi EmailSendLogService |
-| `EmailSendLogService` | oci-monitor | **NOVO** (2026-03-12) | Persistent retry za email — koristi se za `sendEventNotification()` |
-| `MailerService` (SMTP/SendGrid) | oci-monitor + oci-api | Radi | Phase 1 inline retry u oba modula |
-| `@Async` thread pool | oci-monitor | Konfigurisan | 4-8 thread-ova, sla-async-* prefix |
-| `@TransactionalEventListener` | SlaBreachDetectionService | Pattern postoji | AFTER_COMMIT + @Async |
-| `SlaDefinition.notificationRecipientEmails` | oci-library entity | Radi | Comma-separated email lista |
-| `SlaBreach` notification fields | oci-library entity | Radi | notificationSent, sentAt, failureReason |
+| Komponenta | Lokacija | Status |
+|---|---|---|
+| `ApplicationEventPublisher` | SlaComputationService | Radi — publishuje SlaResultComputedEvent |
+| `SlaNotificationService` | oci-monitor | Radi — `sendEmailNotification()` via EmailSendLogService |
+| `EmailSendLogService` | oci-monitor | Radi — Phase 1 + Phase 2 persistent retry |
+| `MailerService` (SMTP/SendGrid) | oci-monitor + oci-api | Radi — Phase 1 inline retry u oba modula |
+| `MonitorApiService` | oci-api | Radi — REST pozivi ka oci-monitor (RestTemplate) |
+| `@Async` thread pool | oci-monitor | Konfigurisan — 4-8 thread-ova, sla-async-* prefix |
+| `@TransactionalEventListener` | SlaBreachDetectionService | Production pattern |
+| `SlaDefinition.notificationRecipientEmails` | oci-library entity | Comma-separated email lista |
+| `SlaBreach` notification fields | oci-library entity | notificationSent, sentAt, failureReason |
 
 ---
 
@@ -413,16 +328,14 @@ Na osnovu poslovnog uticaja, **6 evenata** je najvažnije:
 
 | Event | Recipient | Razlog |
 |---|---|---|
-| SLA deactivated | `definition.notificationRecipientEmails` | Stakeholder-i moraju znati da SLA više nije aktivan |
+| SLA deactivated | `definition.notificationRecipientEmails` | Stakeholder-i moraju znati da SLA vise nije aktivan |
 | SLA deleted | `definition.notificationRecipientEmails` | Stakeholder-i moraju znati da SLA ne postoji |
 | Breach acknowledged | `definition.notificationRecipientEmails` | Tim zna da je neko preuzeo odgovornost |
-| Breach resolved | `definition.notificationRecipientEmails` | Tim zna da je problem rešen |
-| Schedule activated/deactivated | `definition.notificationRecipientEmails` | Informacija o promeni reporting režima |
-| Report generated | `schedule.recipientEmails` | Izveštaj dostupan za pregled |
+| Breach resolved | `definition.notificationRecipientEmails` | Tim zna da je problem resen |
+| Schedule activated/deactivated | `definition.notificationRecipientEmails` | Informacija o promeni reporting rezima |
+| Report generated | `schedule.recipientEmails` | Izvestaj dostupan za pregled |
 
-### 4.2 Event payload (zajedničko)
-
-Svaki event notification treba sadržati:
+### 4.2 Event payload (zajednicko)
 
 ```
 Subject:  [EVENT_TYPE] SLA event — {slaDefinitionName}
@@ -430,7 +343,7 @@ Body:
   - Event type (human-readable)
   - SLA Definition name
   - Timestamp
-  - Actor (ko je izvršio akciju)
+  - Actor (ko je izvrsio akciju)
   - Event-specific detalji
   - Link ka UI (opciono)
 ```
@@ -439,44 +352,55 @@ Body:
 
 ## 5. Pristupi
 
-### 5.1 Pristup A: Direct Notification u servisnom sloju (PREPORUKA)
+### 5.1 Pristup A: Direct Notification via REST ka oci-monitor (PREPORUKA)
 
-Poziv `SlaNotificationService` direktno iz servisnih metoda koje menjaju stanje. Najjednostavniji pristup — bez novih ApplicationEvent klasa, bez novih listener-a.
+Dodati REST endpoint na oci-monitor za slanje SLA event notifikacija. oci-api poziva taj endpoint putem `MonitorApiService` — isti pattern kao `triggerSlaComputation()`. Sve notifikacije prolaze kroz `EmailSendLogService` i dobijaju Phase 1 + Phase 2 persistent retry.
 
 #### Dijagram
 
 ```
-SlaController (oci-api)          SlaService (oci-api)              SlaNotificationService (oci-monitor)
-    │                               │                                   │
-    ├── deactivate(id) ────────────►├── deactivateDefinition()          │
-    │                               │       │                           │
-    │                               │       ├── save(definition)        │
-    │                               │       │                           │
-    │                               │       └── notifyEvent(            │
-    │                               │              "SLA_DEACTIVATED",   │
-    │                               │              definition,          │
-    │                               │              actor)  ────────────►├── sendEventEmail()
-    │                               │                                   │   via EmailSendLogService
-    │                               │                                   │   (persistent retry)
-    │◄──────────────── 200 OK ──────┤                                   │
+oci-api                                              oci-monitor
+────────                                             ───────────
+
+SlaController                                        SlaEventNotificationController
+    │                                                    │
+    ├── deactivate(id)                                   │
+    │       │                                            │
+    │       ▼                                            │
+    │   SlaService                                       │
+    │       ├── deactivateDefinition()                   │
+    │       └── monitorApiService                        │
+    │              .sendSlaEventNotification(             │
+    │                 type, name, recipients,             │
+    │                 actor, details)                     │
+    │                     │                              │
+    │                     │  POST /monitoring/sla/        │
+    │                     │       event-notification      │
+    │                     │──────────────────────────────►│
+    │                     │                              ▼
+    │                     │                    SlaNotificationService
+    │                     │                      .sendEventNotification()
+    │                     │                              │
+    │                     │                              ▼
+    │                     │                    EmailSendLogService
+    │                     │                      .sendEmailWithPersistence()
+    │                     │                              │
+    │                     │                    ┌─────────┴──────────┐
+    │                     │                    │ Phase 1: inline    │
+    │                     │                    │ Phase 2: scheduled │
+    │                     │                    └────────────────────┘
+    │                     │◄── 200 OK ─────────────────────
+    │◄── 200 OK ──────────┤
 ```
-
-**Cross-module pitanje**: `SlaNotificationService` živi u oci-monitor, a user akcije se izvršavaju u oci-api.
-
-**Rešenje**: 3 opcije:
-1. **REST poziv** — oci-api poziva oci-monitor endpoint za slanje notifikacije (kao MonitorApiService pattern)
-2. **Lokalni MailerService** — oci-api već ima MailerService, može slati direktno (ali gubi EmailSendLogService persistent retry)
-3. **Shared servis** — premestiti notification logiku u oci-library (ali library nema servise)
-
-**Preporuka za POC**: Opcija 2 — slanje direktno iz oci-api korišćenjem lokalnog MailerService. Za POC, Phase 1 inline retry (3 pokušaja, ~20s) je dovoljan. Ako se zahteva persistent retry, može se dodati endpoint na oci-monitor.
 
 #### Implementacija
 
-**1. Kreirati `SlaEventType` enum (oci-library):**
+**1. `SlaEventType` enum (oci-library):**
 
 ```java
 @Getter
 @AllArgsConstructor
+@Schema(description = "SLA event types for notifications")
 public enum SlaEventType {
     SLA_DEACTIVATED("SLA Deactivated", "SLA definition has been deactivated"),
     SLA_DELETED("SLA Deleted", "SLA definition has been permanently deleted"),
@@ -491,18 +415,48 @@ public enum SlaEventType {
 }
 ```
 
-**Lokacija**: `oci-library` — jer se koristi i u oci-api (servis) i u oci-monitor (notification service).
-
-**2. Dodati `sendEventNotification()` u `SlaNotificationService` (oci-monitor):**
+**2. `SlaEventNotificationRequestDTO` (oci-library):**
 
 ```java
-public void sendEventNotification(
-        SlaEventType eventType,
-        String slaDefinitionName,
-        String recipients,
-        String actor,
-        Map<String, String> details
-) {
+@Data @Builder
+@Schema(description = "Request DTO for SLA event notification")
+public class SlaEventNotificationRequestDTO {
+    @Schema(description = "Event type") private SlaEventType eventType;
+    @Schema(description = "SLA definition name") private String slaDefinitionName;
+    @Schema(description = "Comma-separated recipients") private String recipients;
+    @Schema(description = "Username who triggered the action") private String actor;
+    @Schema(description = "Event-specific details") private Map<String, String> details;
+}
+```
+
+**3. Endpoint u oci-monitor:**
+
+```java
+@Slf4j @RequiredArgsConstructor @RestController
+@RequestMapping("/monitoring/sla")
+public class SlaEventNotificationController {
+    private final SlaNotificationService slaNotificationService;
+
+    @PostMapping("/event-notification")
+    public ResponseEntity<Void> sendEventNotification(
+            @Valid @RequestBody SlaEventNotificationRequestDTO request) {
+        slaNotificationService.sendEventNotification(
+            request.getEventType(),
+            request.getSlaDefinitionName(),
+            request.getRecipients(),
+            request.getActor(),
+            request.getDetails()
+        );
+        return ResponseEntity.ok().build();
+    }
+}
+```
+
+**4. `sendEventNotification()` u `SlaNotificationService` (oci-monitor):**
+
+```java
+public void sendEventNotification(SlaEventType eventType, String slaDefinitionName,
+        String recipients, String actor, Map<String, String> details) {
     if (StringUtils.isBlank(recipients)) {
         log.info("No recipients for {} event on SLA: {}", eventType, slaDefinitionName);
         return;
@@ -510,19 +464,19 @@ public void sendEventNotification(
 
     String subject = buildEventSubject(eventType, slaDefinitionName);
     String body = buildEventBody(eventType, slaDefinitionName, actor, details);
-
-    String sourceEntityId = details.getOrDefault("entityId", null);
+    String source = "SLA_EVENT_" + eventType.name();
+    String sourceEntityId = details != null ? details.getOrDefault("entityId", null) : null;
 
     for (String recipient : recipients.split(",")) {
         String trimmedRecipient = recipient.trim();
-        SendEmailRequestDto emailRequest = SendEmailRequestDto.builder()
-            .to(trimmedRecipient)
-            .subject(subject)
-            .body(body)
-            .build();
         try {
             emailSendLogService.sendEmailWithPersistence(
-                emailRequest, false, "SLA_EVENT_" + eventType.name(), sourceEntityId);
+                SendEmailRequestDto.builder()
+                    .to(trimmedRecipient)
+                    .subject(subject)
+                    .body(body)
+                    .build(),
+                false, source, sourceEntityId);
         } catch (Exception e) {
             log.warn("Failed to send {} notification to {}: {}",
                 eventType, trimmedRecipient, e.getMessage());
@@ -531,356 +485,175 @@ public void sendEventNotification(
 }
 ```
 
-**Koristi `EmailSendLogService`** (ne direktno MailerService) — dobija Phase 1 + Phase 2 retry besplatno.
-
-**3. Alternativa za oci-api — direktno slanje bez persistent retry:**
-
-Ako se ne želi REST poziv ka oci-monitor, kreirati lightweight `SlaEventNotificationHelper` u oci-api koji koristi lokalni MailerService:
+**5. Poziv iz `MonitorApiService` (oci-api):**
 
 ```java
-@Service @Slf4j @RequiredArgsConstructor
-public class SlaEventNotificationHelper {
-
-    private final MailerService mailerService;
-
-    public void sendEventNotification(SlaEventType eventType, String slaName,
-            String recipients, String actor, Map<String, String> details) {
-        if (StringUtils.isBlank(recipients)) return;
-
-        String subject = String.format("[%s] %s", eventType.getDisplayName(), slaName);
-        String body = buildBody(eventType, slaName, actor, details);
-
-        for (String recipient : recipients.split(",")) {
-            try {
-                mailerService.sendTextEmail(SendEmailRequestDto.builder()
-                    .to(recipient.trim()).subject(subject).body(body).build());
-            } catch (Exception e) {
-                log.warn("Failed to send {} notification to {}: {}",
-                    eventType, recipient.trim(), e.getMessage());
-            }
-        }
-    }
+public void sendSlaEventNotification(SlaEventNotificationRequestDTO request) {
+    restTemplate.postForEntity(
+        monitorBaseUrl + "/monitoring/sla/event-notification",
+        request, Void.class);
 }
 ```
 
-**Trade-off**: Nema persistent retry (Phase 2), ali je jednostavnije — ne zahteva cross-module REST poziv.
-
-**4. Pozivi u servisima (oci-api):**
+**6. Pozivi u servisima (oci-api):**
 
 ```java
 // SlaService.deactivateDefinition()
 slaDefinitionManagementService.deactivateDefinition(id);
-slaEventNotificationHelper.sendEventNotification(
-    SlaEventType.SLA_DEACTIVATED,
-    definition.getName(),
-    definition.getNotificationRecipientEmails(),
-    AuthHelper.getPrincipalUsername("system"),
-    Map.of("definitionId", definition.getUuid().toString())
-);
+monitorApiService.sendSlaEventNotification(SlaEventNotificationRequestDTO.builder()
+    .eventType(SlaEventType.SLA_DEACTIVATED)
+    .slaDefinitionName(definition.getName())
+    .recipients(definition.getNotificationRecipientEmails())
+    .actor(AuthHelper.getPrincipalUsername("system"))
+    .details(Map.of("definitionUuid", definition.getUuid().toString()))
+    .build());
 
 // SlaService.deleteSlaDefinition()
-// VAŽNO: recipients treba preuzeti PRE brisanja jer će entity biti obrisan
+// VAZNO: recipients preuzeti PRE brisanja
 String recipients = existing.getNotificationRecipientEmails();
 String name = existing.getName();
 slaDefinitionManagementService.deleteSlaDefinition(id, deletedBy);
-slaEventNotificationHelper.sendEventNotification(
-    SlaEventType.SLA_DELETED, name, recipients, deletedBy, Map.of());
+monitorApiService.sendSlaEventNotification(SlaEventNotificationRequestDTO.builder()
+    .eventType(SlaEventType.SLA_DELETED)
+    .slaDefinitionName(name)
+    .recipients(recipients)
+    .actor(deletedBy)
+    .build());
+```
 
-// SlaService.acknowledgeBreach()
-// ... acknowledge logic ...
-slaEventNotificationHelper.sendEventNotification(
-    SlaEventType.BREACH_ACKNOWLEDGED,
-    definition.getName(),
-    definition.getNotificationRecipientEmails(),
-    actor,
-    Map.of("severity", breach.getSeverity().name(),
-           "notes", notes != null ? notes : "")
-);
+**7. Report generated — lokalno u oci-monitor (bez REST poziva):**
 
-// SlaService.resolveBreach()
-// ... resolve logic ...
-slaEventNotificationHelper.sendEventNotification(
-    SlaEventType.BREACH_RESOLVED,
-    definition.getName(),
-    definition.getNotificationRecipientEmails(),
-    actor,
-    Map.of("notes", notes != null ? notes : "")
-);
+```java
+// SlaReportGenerationService.generateReport()
+// ... generisanje ...
+slaNotificationService.sendEventNotification(
+    SlaEventType.REPORT_GENERATED,
+    schedule.getSlaDefinition().getName(),
+    schedule.getRecipientEmails(),
+    "scheduler",
+    Map.of("reportName", report.getReportName()));
 ```
 
 #### Procena
 
 | Kriterijum | Ocena |
 |-----------|-------|
-| Složenost | Niska |
-| Effort | **3-4h** |
-| Rizik | Nizak — dodaje pozive, ne menja flow |
-| Fajlovi | SlaEventType enum (oci-library) + SlaEventNotificationHelper (oci-api) + pozivi u 3 servisa |
-| Zavisnosti | Nema novih |
+| Sloznost | Niska-Srednja |
+| Effort | **4-5h** |
+| Rizik | Nizak — koristi postojece MonitorApiService pattern |
+| Fajlovi | Enum + RequestDTO (oci-library), Controller + SlaNotificationService izmena (oci-monitor), MonitorApiService + 3 servisa (oci-api) |
 | Flyway | Ne |
+| Email retry | **Phase 1 + Phase 2** — sve notifikacije prolaze kroz EmailSendLogService |
 
 #### Prednosti
 
-- **Najjednostavniji pristup** — nema novih klasa, event objekata, listener-a
-- **Eksplicitan** — jasno se vidi u kodu gde se šalje notifikacija
-- **Kontrola** — lako se dodaje/uklanja notifikacija po operaciji
-- **Reuse** — koristi postojeći `MailerService` sa inline retry
-- **Brz** — sinhroni poziv, nema event queue delay-a
-- **Testabilan** — mock `SlaEventNotificationHelper` u unit testovima
-- **EmailSendLogService opcija** — ako treba persistent retry, može se dodati REST endpoint na oci-monitor
+- **Full Phase 1 + Phase 2 retry** — sve notifikacije imaju persistent retry via EmailSendLogService
+- **Centralizovano** — sva notification logika u SlaNotificationService (oci-monitor), jedno mesto za maintain
+- **Existing pattern** — MonitorApiService vec koristi REST za `triggerSlaComputation()`
+- **Eksplicitan** — jasno se vidi u kodu gde se salje notifikacija
+- **Testabilan** — mock MonitorApiService u oci-api testovima, mock SlaNotificationService u oci-monitor testovima
+- **Vidljivost** — svi emailovi u `email_send_log` tabeli sa `source = SLA_EVENT_*`
+- **Multi-instance safe** — EmailRetryScheduler koristi ShedLock
 
-#### Mane / Ograničenja
+#### Mane / Ogranicenja
 
-- **Tight coupling** — servisni sloj direktno poziva notification helper
-- **Sinhrono** — ako email slanje kasni, kasni i response (ali inline retry je max ~20s)
-- **Duplikacija** — svaki servis mora da pozove notifikaciju ručno
-- **Nema centralizovane event log** — događaji se ne čuvaju nigde (samo email)
-- **Nema persistent retry** — ako se koristi oci-api MailerService direktno (Phase 1 only)
+- **REST dependency** — ako oci-monitor nije dostupan, notifikacija ne prolazi (ali MonitorApiService vec ima error handling)
+- **Tight coupling** — servisni sloj direktno poziva MonitorApiService
+- **Sinhrono za caller** — REST poziv blokira response dok oci-monitor ne odgovori (ali email se salje async iz oci-monitor perspektive — odmah se vraca nakon INSERT u email_send_log ili uspesnog slanja)
+- **Nema centralizovane event log** — dogadjaji se ne cuvaju nigde (samo email_send_log za email deliverability)
 
 ---
 
 ### 5.2 Pristup B: ApplicationEvent per operacija
 
-Kreirati dedicirane `ApplicationEvent` klase za svaki tip operacije. Listener-i reaguju na evente i šalju notifikacije. Prati postojeći OCI notification pattern.
+Dedicirane `ApplicationEvent` klase za svaki tip operacije. Listener-i reaguju na evente i salju notifikacije.
 
-#### Dijagram
-
-```
-SlaService (oci-api)              Spring Event Bus                SlaEventNotificationListener
-    │                                   │                                   │
-    ├── deactivate()                    │                                   │
-    │   ├── save(definition)            │                                   │
-    │   └── publishEvent(               │                                   │
-    │        SlaDefinitionDeactivated)──►│                                   │
-    │                                   │──►@TransactionalEventListener     │
-    │                                   │   @Async                          │
-    │                                   │   onSlaDefinitionDeactivated() ──►│
-    │                                   │                                   ├── sendEmail()
-    │                                   │                                   │
-    │                                   │                                   │
-    ├── delete()                        │                                   │
-    │   └── publishEvent(               │                                   │
-    │        SlaDefinitionDeleted) ────►│                                   │
-    │                                   │──►onSlaDefinitionDeleted() ──────►│
-    │                                   │                                   ├── sendEmail()
-```
-
-**Cross-module problem**: Ovaj pristup radi samo unutar jednog Spring context-a. Pošto su oci-api i oci-monitor zasebni procesi, event se ne može automatski propagirati.
-
-**Rešenje za cross-module**:
-- Event bus radi unutar modula — listener mora biti u istom modulu kao publisher
-- Za oci-api evente → listener u oci-api (koristi lokalni MailerService, bez persistent retry)
-- Za oci-monitor evente (report generated) → listener u oci-monitor (koristi EmailSendLogService)
-
-#### Implementacija
-
-**1. Event klase (6 komada u oci-library):**
-
-```java
-@Getter
-public abstract class SlaEvent extends ApplicationEvent {
-    private final UUID entityId;
-    private final String slaDefinitionName;
-    private final String recipients;
-    private final String actor;
-    // ... constructor
-}
-
-public class SlaDefinitionDeactivatedEvent extends SlaEvent { }
-public class SlaDefinitionDeletedEvent extends SlaEvent { }
-public class SlaBreachAcknowledgedEvent extends SlaEvent {
-    private final String severity;
-    private final String notes;
-}
-public class SlaBreachResolvedEvent extends SlaEvent {
-    private final String notes;
-}
-public class SlaScheduleStatusChangedEvent extends SlaEvent {
-    private final boolean activated;
-}
-public class SlaReportGeneratedEvent extends SlaEvent {
-    private final String reportName;
-}
-```
-
-**2. Listener u oci-api:**
-
-```java
-@Component @Slf4j @RequiredArgsConstructor
-public class SlaEventNotificationListener {
-
-    private final MailerService mailerService;
-
-    @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onDefinitionDeactivated(SlaDefinitionDeactivatedEvent event) {
-        sendNotification(SlaEventType.SLA_DEACTIVATED, event);
-    }
-
-    // ... analogno za ostalih 4 evenata u oci-api
-}
-```
-
-**3. Listener u oci-monitor** (za report generated):
-
-```java
-@Component @Slf4j @RequiredArgsConstructor
-public class SlaReportEventNotificationListener {
-
-    private final EmailSendLogService emailSendLogService;
-
-    @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onReportGenerated(SlaReportGeneratedEvent event) {
-        // Koristi EmailSendLogService za persistent retry
-    }
-}
-```
+**Cross-module ogranicenje**: Spring event bus je per-process. Potrebna su **dva listener-a** — jedan u oci-api (za user-initiated evente) i jedan u oci-monitor (za report generated). Listener u oci-api koristi lokalni MailerService (samo Phase 1), listener u oci-monitor koristi EmailSendLogService (Phase 1 + 2).
 
 #### Procena
 
 | Kriterijum | Ocena |
 |-----------|-------|
-| Složenost | Srednja |
+| Sloznost | Srednja |
 | Effort | **4-6h** |
-| Rizik | Nizak |
+| Email retry | **Mesovito** — oci-api eventi samo Phase 1, oci-monitor eventi Phase 1+2 |
 | Fajlovi | 6 event klasa + 1 bazna (oci-library) + 2 listener-a (oci-api + oci-monitor) + enum + 3 servisa |
-| Zavisnosti | Nema novih |
 | Flyway | Ne |
 
-#### Prednosti
+#### Prednosti / Mane
 
-- **Loose coupling** — servisi ne znaju za notifikacije, samo publishuju event
-- **Extensible** — lako dodati nove listener-e (audit log, webhook, Slack)
-- **Async** — `@Async` + `AFTER_COMMIT` ne blokira request
-- **Consistent pattern** — prati postojeći OCI notification pattern
-- **Centralized** — sva notification logika u listener-ima
-- **Testable** — event publishing lako se testira
-
-#### Mane / Ograničenja
-
-- **Više klasa** — 6-7 novih event klasa (boilerplate)
-- **Indirection** — teže se prati flow (publish → listener → notification)
-- **AFTER_COMMIT ograničenje** — za DELETE operacije, entitet više ne postoji kad listener primi event (mora se proslediti sav payload u eventu)
-- **Event explosion** — sa vremenom raste broj event klasa
-- **Cross-module** — dva listener-a u dva modula, jer Spring event bus je per-process
+- (+) Loose coupling — servisi ne znaju za notifikacije, publishuju event
+- (+) Extensible — lako dodati nove listener-e
+- (+) Async — `@Async` + `AFTER_COMMIT` ne blokira request
+- (-) **Nekonzistentan retry** — oci-api eventi nemaju Phase 2 persistent retry
+- (-) 6-7 novih event klasa (boilerplate)
+- (-) AFTER_COMMIT za DELETE — entity vise ne postoji
+- (-) Dva listener-a u dva modula za maintain
 
 ---
 
-### 5.3 Pristup C: Generički SlaEvent + Event Type enum
+### 5.3 Pristup C: Genericki SlaEvent + Event Type enum
 
-Jedna generička `SlaEvent` klasa sa `eventType` poljem umesto zasebnih klasa po operaciji. Kompromis između A i B.
+Jedna genericka `SlaEvent` klasa sa `eventType` poljem. Kompromis izmedju A i B.
 
-#### Dijagram
-
-```
-SlaService (oci-api)              Spring Event Bus              SlaEventNotificationListener
-    │                                   │                                │
-    ├── deactivate()                    │                                │
-    │   └── publishEvent(SlaEvent(      │                                │
-    │        type=DEACTIVATED,          │                                │
-    │        name, recipients,          │                                │
-    │        actor, details)) ─────────►│                                │
-    │                                   │──►@Async                       │
-    │                                   │   @TransactionalEventListener  │
-    │                                   │   onSlaEvent(event) ──────────►│
-    │                                   │                                ├── switch(eventType)
-    │                                   │                                ├── buildSubject()
-    │                                   │                                ├── buildBody()
-    │                                   │                                └── sendEmail()
-```
-
-#### Implementacija
-
-**1. Jedna event klasa (oci-library):**
-
-```java
-@Getter
-public class SlaEvent extends ApplicationEvent {
-    private final SlaEventType eventType;
-    private final UUID entityId;
-    private final String slaDefinitionName;
-    private final String recipients;
-    private final String actor;
-    private final Map<String, String> details;
-    // ... constructor
-}
-```
-
-**2. Jedan listener sa switch:**
-
-```java
-@Async
-@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-public void onSlaEvent(SlaEvent event) {
-    log.info("Processing SLA event: {} for {}", event.getEventType(), event.getSlaDefinitionName());
-    // build subject + body based on eventType, send email
-}
-```
+**Cross-module**: Isti problem kao Pristup B — dva listener-a, nekonzistentan retry.
 
 #### Procena
 
 | Kriterijum | Ocena |
 |-----------|-------|
-| Složenost | Niska-Srednja |
+| Sloznost | Niska-Srednja |
 | Effort | **3-4h** |
-| Rizik | Nizak |
-| Fajlovi | 1 event klasa + 1 listener + enum (oci-library) + 3 servisa |
-| Zavisnosti | Nema novih |
+| Email retry | **Mesovito** — isti problem kao B |
+| Fajlovi | 1 event klasa + 1 listener per modul + enum |
 | Flyway | Ne |
 
-#### Prednosti
+#### Prednosti / Mane
 
-- **Jedna event klasa** — nema boilerplate-a, nema event explosion
-- **Loose coupling** — servisi publishuju event, ne znaju za notifikacije
-- **Extensible** — novi event tipovi = samo novi enum value
-- **Async + AFTER_COMMIT** — konzistentan sa postojećim SLA pattern-om
-- **Centralized** — jedan listener, jedna metoda
-- **Details map** — fleksibilan payload bez novih klasa
-
-#### Mane / Ograničenja
-
-- **Type-unsafe details** — `Map<String, String>` umesto typed polja
-- **Listener prima sve evente** — ne može se selektivno slušati po tipu (ali switch rešava)
-- **AFTER_COMMIT** — isti problem kao B za DELETE operacije
-- **Cross-module** — isti problem kao Pristup B
+- (+) Jedna event klasa — nema boilerplate-a
+- (+) Loose coupling, extensible
+- (-) **Nekonzistentan retry** — oci-api eventi samo Phase 1
+- (-) Type-unsafe details (`Map<String, String>`)
+- (-) Dva listener-a za maintain
 
 ---
 
-### 5.4 Pristup D: Audit Event Log tabela + Scheduled Notification
+### 5.4 Pristup D: Event Log tabela + Scheduled Notification
 
-Svaka state-modifying operacija se loguje u `sla_event_log` tabelu. Scheduled job periodično čita nove evente i šalje notifikacije.
+Svaka state-modifying operacija loguje event u `sla_event_log` tabelu. Scheduled job u oci-monitor cita nove evente, salje notifikacije via EmailSendLogService i markira kao notified.
+
+**Cross-module resenje**: Prirodno — oci-api pise u shared tabelu (INSERT), oci-monitor cita iz nje (SELECT). Nema REST poziva niti event propagacije.
 
 #### Dijagram
 
 ```
-SlaService (oci-api)            sla_event_log                  SlaEventNotificationScheduler
-    │                              tabela                      @Scheduled(fixedDelay=1min)
-    │                                │                         (u oci-monitor)
-    │                                │                                │
-    ├── deactivate()                 │                                │
-    │   ├── save(definition)         │                                │
-    │   └── INSERT INTO              │                                │
-    │       sla_event_log ──────────►│                                │
-    │       (type, entity_id,        │                                │
-    │        actor, details,         │                                │
-    │        notified=false)         │                                │
-    │                                │                                │
-    │                                │◄───── SELECT * WHERE           │
-    │                                │       notified = false ────────┤
-    │                                │                                │
-    │                                │                                ├── sendEmail() per event
-    │                                │                                │   via EmailSendLogService
-    │                                │                                │
-    │                                │◄───── UPDATE SET               │
-    │                                │       notified = true ─────────┤
-```
+oci-api                            sla_event_log              oci-monitor
+────────                           (shared MySQL)             ───────────
 
-**Prednost za cross-module**: Rešava problem oci-api → oci-monitor komunikacije prirodno — oci-api piše u shared tabelu, oci-monitor čita iz nje.
+SlaService                              │              SlaEventNotificationScheduler
+    │                                   │              @Scheduled(fixedDelay=1min)
+    ├── deactivate()                    │              @SchedulerLock
+    │   ├── save(definition)            │                      │
+    │   └── slaEventLogService          │                      │
+    │       .logEvent(type, id,         │                      │
+    │        name, recipients,          │                      │
+    │        actor, details)            │                      │
+    │           │                       │                      │
+    │           └── INSERT ────────────►│                      │
+    │              (notified=false)      │                      │
+    │                                   │◄── SELECT WHERE ─────┤
+    │                                   │    notified=false     │
+    │                                   │                      │
+    │                                   │                      ├── EmailSendLogService
+    │                                   │                      │   .sendEmailWithPersistence()
+    │                                   │                      │
+    │                                   │◄── UPDATE SET ───────┤
+    │                                   │    notified=true      │
+```
 
 #### Potrebne izmene
 
-**1. Flyway migracija — nova tabela:**
+**1. Flyway migracija:**
 
 ```sql
 CREATE TABLE sla_event_log (
@@ -898,158 +671,113 @@ CREATE TABLE sla_event_log (
 );
 ```
 
-**2. Entity (oci-library) + Repository (oci-monitor)**
-
-**3. SlaEventLogService (oci-api)** — za INSERT:
-```java
-public void logEvent(SlaEventType eventType, UUID entityId, String entityName,
-        String recipients, String actor, Map<String, String> details) {
-    SlaEventLog log = SlaEventLog.builder()
-        .eventType(eventType.name())
-        .entityId(entityId.toString())
-        .entityName(entityName)
-        .recipients(recipients)
-        .actor(actor)
-        .details(objectMapper.writeValueAsString(details))
-        .notified(false)
-        .build();
-    repository.save(log);
-}
-```
-
-**4. Scheduled job (oci-monitor):**
-
-```java
-@Scheduled(fixedDelay = 60_000)  // 1 minut
-@SchedulerLock(name = "sla-event-notification", lockAtMostFor = "PT5M", lockAtLeastFor = "PT30S")
-public void processEvents() {
-    if (!schedulerToggleService.isTaskEnabled("sla.event.notification")) return;
-
-    List<SlaEventLog> pending = eventLogRepository.findByNotifiedFalse();
-    for (SlaEventLog event : pending) {
-        emailSendLogService.sendEmailWithPersistence(...);  // Full Phase 1 + Phase 2 retry
-        event.setNotified(true);
-        event.setNotifiedAt(LocalDateTime.now());
-        eventLogRepository.save(event);
-    }
-}
-```
+**2. Entity (oci-library), Repository (oci-monitor + oci-api), LogService (oci-api), Scheduler (oci-monitor)**
 
 #### Procena
 
 | Kriterijum | Ocena |
 |-----------|-------|
-| Složenost | Srednja-Visoka |
+| Sloznost | Srednja-Visoka |
 | Effort | **6-8h** |
-| Rizik | Nizak-Srednji |
-| Fajlovi | Flyway + Entity (oci-library) + Repository + Scheduler (oci-monitor) + Log Service (oci-api) |
-| Zavisnosti | Nema novih |
+| Email retry | **Phase 1 + Phase 2** — sve kroz EmailSendLogService u oci-monitor |
+| Fajlovi | Flyway + Entity (oci-library) + Repository + Scheduler (oci-monitor) + LogService (oci-api) |
 | Flyway | **Da** — nova tabela |
 
-#### Prednosti
+#### Prednosti / Mane
 
-- **Audit trail** — svaki event trajno zabeležen u bazi
-- **Cross-module natural** — piše oci-api, čita oci-monitor (shared DB)
-- **Persistent** — preživljava restart, event se ne gubi
-- **Full retry** — koristi EmailSendLogService za Phase 1 + Phase 2
-- **Queryable** — "Koji eventi su se desili za ovaj SLA u poslednjem mesecu?"
-- **Decoupled** — INSERT je brz (<1ms), slanje je async
-
-#### Mane / Ograničenja
-
-- **Nova tabela** — Flyway migracija, novi entity, novi repository
-- **Delay** — notifikacija kasni do 1 minut (scheduled interval)
-- **DB rast** — tabela raste sa svakim eventom (potreban cleanup job)
-- **Overkill** — za 6 event tipova i ~10-50 evenata/dan
-- **Operativni overhead** — maintain scheduled job, monitor table growth
+- (+) **Audit trail** — svaki event trajno u bazi, queryable
+- (+) **Cross-module natural** — shared DB, nema REST dependency
+- (+) **Persistent** — prezivljava restart oba modula
+- (+) **Full Phase 1+2 retry** — sve kroz EmailSendLogService
+- (+) **Decoupled** — INSERT je brz (<1ms), slanje je async
+- (-) **Nova tabela** — Flyway migracija, novi entity, novi repository
+- (-) **Delay** — notifikacija kasni do 1 minut
+- (-) **DB rast** — tabela raste (potreban cleanup job)
+- (-) **Novi scheduler** — 16. scheduler u sistemu, operativni overhead
 
 ---
 
 ## 6. Uporedna tabela
 
-| Kriterijum | A: Direct | B: Event per tip | C: Generic Event | D: Event Log tabela |
+| Kriterijum | A: Direct + REST | B: Event per tip | C: Generic Event | D: Event Log |
 |---|---|---|---|---|
-| **Složenost** | Niska | Srednja | Niska-Srednja | Srednja-Visoka |
-| **Effort** | 3-4h | 4-6h | 3-4h | 6-8h |
-| **Nove klase** | 1 (enum) + 1 (helper) | 7 (6 events + base) + 2 listeners | 2 (event + enum) + 1 listener | 4+ (entity, repo, scheduler, service) |
+| **Sloznost** | Niska-Srednja | Srednja | Niska-Srednja | Srednja-Visoka |
+| **Effort** | 4-5h | 4-6h | 3-4h | 6-8h |
+| **Nove klase** | enum + DTO + controller | 7 events + 2 listeners | event + enum + 2 listeners | entity + repo + scheduler + service |
 | **Flyway** | Ne | Ne | Ne | Da |
-| **Async** | Ne (sinhrono) | Da (@Async) | Da (@Async) | Da (scheduled) |
-| **Loose coupling** | Ne | Da | Da | Da |
-| **Audit trail** | Ne | Ne | Ne | Da |
-| **Persistent retry** | Phase 1 only (oci-api) | Phase 1 only (oci-api) | Phase 1 only (oci-api) | **Phase 1 + 2** (via EmailSendLogService) |
-| **Cross-module** | Trivijalno (lokalni poziv) | 2 listener-a u 2 modula | 2 listener-a u 2 modula | Natural (shared DB) |
+| **Email retry** | **Phase 1+2 (sve)** | Mesovito (api=P1, monitor=P1+2) | Mesovito | **Phase 1+2 (sve)** |
+| **Cross-module** | REST (MonitorApiService) | 2 listener-a | 2 listener-a | Shared DB (natural) |
+| **Async** | Da (EmailSendLogService) | Da (@Async) | Da (@Async) | Da (scheduled) |
+| **Audit trail** | Ne (samo email_send_log) | Ne | Ne | **Da** |
 | **Extensible** | Srednje | Visoko | Visoko | Visoko |
-| **Consistent pattern** | Novi (direct) | Prati OCI pattern | Prati SLA pattern | Nov pattern |
-| **AFTER_COMMIT safe** | N/A (sinhrono) | Da | Da | N/A (sinhrono write) |
+| **Existing pattern** | Da (MonitorApiService) | Da (ApplicationEvent) | Da (ApplicationEvent) | Nov pattern |
 | **Testabilnost** | Visoka | Visoka | Visoka | Srednja |
 
 ---
 
-## 7. Preporuka: Pristup A — Direct Notification
+## 7. Preporuka: Pristup A — Direct Notification via REST
 
-### Zašto Pristup A?
+### Zasto Pristup A?
 
-**Kontekst:**
-- Ovo je **POC UI** — ne enterprise production sistem
-- Volume je nizak: ~10-50 event notifikacija dnevno u najgorem slučaju
-- `EmailSendLogService` sa Phase 2 persistent retry postoji za breach notifikacije, ali G-16 eventi su manje kritični od breach alertova
-- Phase 1 inline retry (3 pokušaja, ~20s) je dovoljan za event notifikacije
-- KISS princip — najjednostavniji pristup koji ispunjava zahtev
+**Kljucni argumenti:**
 
-**Pristup A optimalno balansira:**
+1. **Konzistentan Phase 1+2 retry za SVE notifikacije** — svaki email prolazi kroz EmailSendLogService u oci-monitor. Pristup B i C imaju problem da oci-api eventi dobijaju samo Phase 1 retry jer EmailSendLogService ne postoji u oci-api.
 
-```
-                     EXTENSIBILNOST
-                          ▲
-                          │
-      B (Events)  ●      │        ● D (Event Log)
-                          │
-      C (Generic) ●      │
-                          │
-                          │   ● A (Direct)  ← SWEET SPOT za POC
-                          │
-  ────────────────────────┼────────────────────► JEDNOSTAVNOST
-                          │
-```
+2. **Existing pattern** — MonitorApiService vec koristi REST pozive za `triggerSlaComputation()`. Dodavanje `sendSlaEventNotification()` je prirodno prosirenje. Nema novog infrastrukturnog patterna.
 
-**Ključni argumenti:**
+3. **Centralizovana notification logika** — `SlaNotificationService` u oci-monitor je jedino mesto gde se gradi email subject/body, poziva EmailSendLogService, i loguje rezultate. Nema duplirane logike u oci-api.
 
-1. **Najmanji effort** — 3-4h, samo `SlaEventType` enum + `SlaEventNotificationHelper` + 6 poziva
-2. **Nema cross-module komplikacije** — sve u oci-api (osim report generated koji je u oci-monitor)
-3. **Nema migracije** — ne menja DB šemu
-4. **Eksplicitan** — jasno se u kodu vidi gde se šalje notifikacija
-5. **Testabilan** — mock `SlaEventNotificationHelper`, verify poziv
-6. **Upgrade path** — ako zatreba persistent retry, lako se dodaje REST endpoint ka oci-monitor ili se prelazi na Pristup D
+4. **Bez migracije** — ne zahteva novu tabelu niti promenu DB seme. Pristup D zahteva Flyway + entity + repository.
+
+5. **Eksplicitnost** — jasno se vidi u kodu gde i zasto se salje notifikacija. Nema indirekcije (publish → event bus → listener → notification). Za debugging i code review — jasan tok.
+
+6. **SOLID: Single Responsibility** — SlaService je odgovoran za business logiku, delegira notification ka MonitorApiService. SlaNotificationService je odgovoran za slanje emailova. Svako radi svoj posao.
+
+**Pristup A vs D:**
+
+Pristup D (Event Log) je robusniji jer ne zavisi od REST komunikacije i ima audit trail. Medjutim:
+- REST dependency izmedju oci-api i oci-monitor vec postoji i funkcionise u produkciji
+- Audit trail evenata nije trenutni zahtev (moze se dodati naknadno)
+- Pristup D uvodi novu tabelu, novi scheduler (16.), i delay do 1 min
+- Ako se u buducnosti pokaze da je audit trail neophodan, migracija sa A na D je jednostavna — pozivi u servisima se zamene sa INSERT u tabelu
 
 **Kada upgrade-ovati:**
-- Na **Pristup C** — ako se uvede webhook kanal (G-07), centralizovati kroz event bus
-- Na **Pristup D** — ako se zahteva audit trail ili persistent retry za sve event notifikacije
+- Na **Pristup D** — ako se zahteva audit trail evenata ili ako REST dependency postane problem
+- Na **Pristup B/C** — ako se uvede webhook kanal (G-07) i treba centralizovani event bus za vise kanala
 
-### Napomena o sinhronosti i retry-ju
+### Napomena o REST dependency
 
-Pristup A je sinhroni — `sendEventNotification()` se poziva u istom thread-u. Ali:
-- MailerService ima inline retry sa exponential backoff (3 pokušaja, max ~20s)
-- Ako sva 3 pokušaja propadnu, catch loguje error i response se vraća — korisnik ne čeka duže od ~20s u najgorem slučaju
-- Za POC, ovo je prihvatljivo
-- Za production: wrap u `@Async` ili prelaz na Pristup D za full persistent retry
+`MonitorApiService` poziv ka oci-monitor moze da ne prodje ako je oci-monitor nedostupan. U tom slucaju:
+- Notifikacija se **nece poslati** (email se ne loguje u email_send_log)
+- User akcija (deactivate, delete, itd.) **ce se uspesno zavrsiti** — notifikacija se salje u try/catch bloku, ne utice na primarnu operaciju
+- Log warning se emituje
+
+Ovo je prihvatljiv trade-off jer:
+- oci-api i oci-monitor u produkciji rade paralelno i medjusobno zavise (monitoring, triggering)
+- Ako oci-monitor nije dostupan, onda ni breach notifikacije ne rade — problem je siri od G-16
+- U multi-instance deploymentu sa load balancerom, nedostupnost je vrlo retka
 
 ---
 
 ## 8. Implementacioni plan (Pristup A)
 
-### Korak 1: Kreirati `SlaEventType` enum u oci-library
+### Korak 1: Kreirati `SlaEventType` enum i `SlaEventNotificationRequestDTO` u oci-library
 
-`oci-library/.../sla/SlaEventType.java` — 7 vrednosti sa displayName i description.
+`oci-library/dto/sla/SlaEventNotificationRequestDTO.java` + `oci-library/entity/sla/SlaEventType.java`
 
-### Korak 2: Kreirati `SlaEventNotificationHelper` u oci-api
+### Korak 2: Dodati `sendEventNotification()` u `SlaNotificationService` (oci-monitor)
 
-`oci-api/.../sla/SlaEventNotificationHelper.java` — `@Service` koji koristi lokalni MailerService. Metode: `sendEventNotification()`, `buildSubject()`, `buildBody()`.
+Genericka metoda — prima eventType, slaDefinitionName, recipients, actor, details. Gradi subject i body po event tipu, salje kroz EmailSendLogService per recipient.
 
-### Korak 3: Dodati `sendEventNotification()` u `SlaNotificationService` (oci-monitor)
+### Korak 3: Dodati REST endpoint u oci-monitor
 
-Za report generated event koji se izvršava u oci-monitor. Koristi EmailSendLogService za persistent retry.
+`POST /monitoring/sla/event-notification` — prima `SlaEventNotificationRequestDTO`, delegira na `SlaNotificationService.sendEventNotification()`.
 
-### Korak 4: Dodati pozive u servisni sloj
+### Korak 4: Dodati `sendSlaEventNotification()` u `MonitorApiService` (oci-api)
+
+REST poziv ka oci-monitor endpoint-u.
+
+### Korak 5: Dodati pozive u servisni sloj (oci-api + oci-monitor)
 
 | Servis | Modul | Metod | Event |
 |--------|-------|-------|-------|
@@ -1058,18 +786,20 @@ Za report generated event koji se izvršava u oci-monitor. Koristi EmailSendLogS
 | `SlaService` | oci-api | `acknowledgeBreach()` | `BREACH_ACKNOWLEDGED` |
 | `SlaService` | oci-api | `resolveBreach()` | `BREACH_RESOLVED` |
 | `SlaReportScheduleService` | oci-api | `updateScheduleStatus()` | `SCHEDULE_ACTIVATED` / `SCHEDULE_DEACTIVATED` |
-| `SlaReportGenerationService` | oci-monitor | `generateReport()` | `REPORT_GENERATED` |
+| `SlaReportGenerationService` | oci-monitor | `generateReport()` | `REPORT_GENERATED` (lokalno, bez REST) |
 
 ### Fajlovi koji se menjaju:
 
 | Fajl | Modul | Izmena |
 |------|-------|--------|
 | `SlaEventType.java` | **oci-library** | **NOVO** — enum sa 7 vrednosti |
-| `SlaEventNotificationHelper.java` | **oci-api** | **NOVO** — service sa sendEventNotification() + buildSubject() + buildBody() |
+| `SlaEventNotificationRequestDTO.java` | **oci-library** | **NOVO** — request DTO |
+| `SlaEventNotificationController.java` | **oci-monitor** | **NOVO** — REST endpoint |
+| `SlaNotificationService.java` | oci-monitor | Dodati `sendEventNotification()` + `buildEventSubject()` + `buildEventBody()` |
+| `MonitorApiService.java` | oci-api | Dodati `sendSlaEventNotification()` |
 | `SlaService.java` | oci-api | 4 poziva (deactivate, delete, acknowledge, resolve) |
 | `SlaReportScheduleService.java` | oci-api | 1 poziv (status change) |
-| `SlaNotificationService.java` | oci-monitor | Dodati `sendEventNotification()` za report generated |
-| `SlaReportGenerationService.java` | oci-monitor | 1 poziv (report generated) |
+| `SlaReportGenerationService.java` | oci-monitor | 1 poziv (report generated — lokalno) |
 
 ### Email format primeri
 
@@ -1094,26 +824,25 @@ This is an automated notification from OCI SLA Management.
 
 ---
 
-## 9. Frontend — kratki pregled
+## 9. Frontend
 
 Frontend za G-16 je minimalan — nema novih stranica ni komponenti. Notifikacije su email-only.
 
-**Opciono za budućnost** (van scope-a G-16):
-- Toast/snackbar notifikacija u UI kad se breach acknowledge/resolve (već postoji optimistic update u `SlaBreachListPage`)
-- Notification center/inbox u navigaciji (po uzoru na OCI UI "Notifikacije" dropdown)
-- WebSocket push za real-time obaveštenja
+**Opciono za buducnost** (van scope-a G-16):
+- Toast/snackbar u UI kad se breach acknowledge/resolve
+- Notification center u navigaciji (po uzoru na OCI UI dropdown)
+- WebSocket push za real-time obavestenja
 
 ---
 
-## 10. Buduća unapređenja (van scope-a G-16)
+## 10. Buduca unapredjenja (van scope-a G-16)
 
 | Stavka | Pristup | Trigger |
 |--------|---------|---------|
-| Webhook kanal | Refaktor na Pristup C + webhook sender | G-07 implementacija |
-| Audit event log | Pristup D overlay | Compliance/audit zahtev |
-| Notification preferences | Per-SLA + per-event config | Korisnici žele granularniju kontrolu |
-| Mute mehanizam | Verification entity + mute linkovi (po OCI notification patternu) | Korisnici žele unsubscribe |
-| Slack/Teams integration | Novi kanal u notification helper | Enterprise zahtev |
+| Webhook kanal | Dodati webhook poziv u SlaNotificationService.sendEventNotification() | G-07 implementacija |
+| Audit event log | Migracija na Pristup D | Compliance/audit zahtev |
+| Notification preferences | Per-SLA + per-event config tabela | Korisnici zele kontrolu |
+| Mute mehanizam | Verification entity + mute linkovi u emailu | Po uzoru na OCI notification pattern |
+| Slack/Teams integration | Novi kanal u SlaNotificationService | Enterprise zahtev |
 | Email template (HTML) | Thymeleaf template umesto plain text | UX zahtev |
 | Digest/summary email | Scheduled batch umesto per-event | Volume >100 event/dan |
-| Persistent retry za event notifikacije | Migriraj na EmailSendLogService (REST ka oci-monitor ili Pristup D) | Mission-critical event notifikacije |
