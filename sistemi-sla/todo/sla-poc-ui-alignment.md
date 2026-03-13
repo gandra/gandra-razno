@@ -722,7 +722,7 @@ Ovaj princip maksimalno olaksava posao UI tima — kad otvore POC kod, prepoznaj
 
 | Prioritet | ID | Zadatak | Effort | Obrazlozenje |
 |-----------|-----|---------|--------|-------------|
-| 1 (must) | A-01 | Path alias `@` | 15min | Trivijalano, svi importi cistiji |
+| 1 (must) | A-01 | ~~Path alias `@`~~ | ~~15min~~ | ✅ **DONE** (2026-03-13): vite.config.ts + tsconfig.app.json + 153 importa zamenjeno |
 | 2 (must) | A-06 | Constants reorganizacija | 30min | Trivijalano, bolja organizacija |
 | 3 (must) | A-07 | Hooks reorganizacija (hooks/api/) | 30min | Trivijalano, oci-ui pattern |
 | 4 (must) | A-03 | Query keys factory | 1-2h | Kljucan za cache management |
