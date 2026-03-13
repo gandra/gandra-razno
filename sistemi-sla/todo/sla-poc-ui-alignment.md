@@ -723,12 +723,12 @@ Ovaj princip maksimalno olaksava posao UI tima — kad otvore POC kod, prepoznaj
 | Prioritet | ID | Zadatak | Effort | Obrazlozenje |
 |-----------|-----|---------|--------|-------------|
 | 1 (must) | A-01 | ~~Path alias `@`~~ | ~~15min~~ | ✅ **DONE** (2026-03-13): vite.config.ts + tsconfig.app.json + 153 importa zamenjeno |
-| 2 (must) | A-06 | Constants reorganizacija | 30min | Trivijalano, bolja organizacija |
-| 3 (must) | A-07 | Hooks reorganizacija (hooks/api/) | 30min | Trivijalano, oci-ui pattern |
-| 4 (must) | A-03 | Query keys factory | 1-2h | Kljucan za cache management |
-| 5 (must) | A-02 | Pages.tsx + Layout.tsx | 1-2h | Razdvajanje odgovornosti |
+| 2 (must) | A-06 | ~~Constants reorganizacija~~ | ~~30min~~ | ✅ **DONE** (2026-03-13): constants/ dir sa index.ts + routes.ts, svi importi rade |
+| 3 (must) | A-07 | ~~Hooks reorganizacija (hooks/api/)~~ | ~~30min~~ | ✅ **DONE** (2026-03-13): 9 API hookova premesteno u hooks/api/, useAuth i useSlaFeatures ostaju u hooks/ |
+| 4 (must) | A-03 | ~~Query keys factory~~ | ~~1-2h~~ | ✅ **DONE** (2026-03-13): hooks/api/queryKeys.ts sa 11 key factory-ja, svi hookovi koriste factory |
+| 5 (must) | A-02 | ~~Pages.tsx + Layout.tsx~~ | ~~1-2h~~ | ✅ **DONE** (2026-03-13): App=providers, Pages=routes, Layout=SlaNavigation+Outlet+Footer, SlaNavigation uklonjeno iz 9 stranica |
 | 6 (must) | A-11 | Tenant/Org selector u header | 3-4h | **Kljucno za oci-ui paritet** — header identican |
-| 7 (should) | A-05 | Toast sistem (Sonner) | 1-2h | UX poboljsanje + oci-ui pattern |
+| 7 (should) | A-05 | ~~Toast sistem (Sonner)~~ | ~~1-2h~~ | ✅ **DONE** (2026-03-13): sonner instaliran, Toaster u App.tsx, sve alert() zamenjene sa toast.success/error |
 | 8 (should) | A-09 | Mutation hookovi | 2-3h | Konzistentnost sa oci-ui |
 | 9 (nice) | A-10 | i18n setup | 3-4h | Najveci effort, ali lep-to-have |
 | 10 (nice) | A-08 | Widget pattern (tabele) | 4-6h | Najveci effort, srednji impact |
