@@ -730,7 +730,7 @@ Ovaj princip maksimalno olaksava posao UI tima — kad otvore POC kod, prepoznaj
 | 6 (must) | A-11 | ~~Tenant/Org selector u header~~ | ~~3-4h~~ | ✅ **DONE** (2026-03-13): 3 context-a (Org/Tenant/Sub), TenantSelect u header, servisi, hookovi, tipovi, localStorage persist |
 | 7 (should) | A-05 | ~~Toast sistem (Sonner)~~ | ~~1-2h~~ | ✅ **DONE** (2026-03-13): sonner instaliran, Toaster u App.tsx, sve alert() zamenjene sa toast.success/error |
 | 8 (should) | A-09 | ~~Mutation hookovi~~ | ~~2-3h~~ | ✅ **DONE** (2026-03-13): 6 mutation hook fajlova (17 hookova) u hooks/api/. Integracija u stranice kad se reads prebace na useQuery |
-| 9 (nice) | A-10 | ~~i18n setup~~ | ~~3-4h~~ | ✅ **DONE** (2026-03-13): i18next + HttpBackend, 2 jezika (cyril/latin), 3 namespace-a (common/sla/navbar), SlaNavigation potpuno prevedena |
+| 9 (nice) | A-10 | ~~i18n setup~~ | ~~3-4h~~ | ✅ **DONE** (2026-03-13): i18next + HttpBackend, 2 jezika (cyril/latin), 3 namespace-a (common/sla/navbar). **100% stringova prevedeno** — sve stranice, widgeti, komponente, forme, dijalozi, chartovi (30 TSX fajlova). |
 | 10 (nice) | A-08 | ~~Widget pattern (tabele)~~ | ~~4-6h~~ | ✅ **DONE** (2026-03-13): 5 widgeta ekstrahovano (SlaDefinitionsTable, BreachTable, ScheduleTable, StoredReportTable, NotificationTable). Stranice su tanak wrapper (header + widget) |
 | 11 (skip) | A-04 | Api objekat konverzija | 2-3h | Service pattern je OK |
 
@@ -844,7 +844,7 @@ UI tim pri integraciji treba samo:
 2. Zameni shadcn/ui sa Mantine komponentama u JSX
 3. Zameni react-hook-form sa @mantine/form u formama
 4. Zameni rucne tabele sa Mantine React Table
-5. ~~Prevede hardcoded stringove u i18n kljuceve~~ → i18n infrastruktura je vec na mestu, treba samo dodati preostale kljuceve za stranice
+5. ~~Prevede hardcoded stringove u i18n kljuceve~~ → ✅ **Kompletno** — svi stringovi prevedeni, 30 TSX fajlova koristi `useTranslation()`, 3 namespace-a (common/sla/navbar), 2 jezika (cyril/latin)
 6. Doda PermissionControl gde treba
 7. Context providers su **vec na mestu** — samo zamene shadcn Select sa Mantine Select u TenantSelect
-8. i18n namespace-i i prevodi za navbar su **vec na mestu** — dodaju namespace-e za ostale stranice
+8. ~~i18n namespace-i i prevodi~~ → **vec kompletni** — svi namespace-i (common/sla/navbar) imaju sve kljuceve za sve stranice i komponente
