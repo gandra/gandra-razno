@@ -101,6 +101,7 @@ Usklađivanje `oci-sla-management-poc-ui` sa `oci-ui` code patterns-om. Detaljan
 | A-08 | Widget pattern (page = thin wrapper, widget = self-contained) | ✅ DONE | 5 widgeta: SlaDefinitionsTable, BreachTable, ScheduleTable, StoredReportTable, NotificationTable |
 | A-09 | NavDropdown komponenta | ✅ DONE | Dropdown sa hover+click, chevron, per-item opisi |
 | A-10 | i18n (i18next + HttpBackend) | ✅ DONE | 2 jezika (cyril/latin), 3 namespace-a (common/sla/navbar), **100% stringova prevedeno** — sve stranice, widgeti, komponente, forme, dijalozi, chartovi. 30 TSX fajlova koristi useTranslation. |
+| A-11b | TenantSelect usklađen sa oci-ui | ✅ DONE | Custom GroupedSelect dropdown vizuelno odgovara Mantine Select-u. Iste širine, grouping, check ikona, subscriptionID value. Isti API endpointi. |
 | A-04 | Api object conversion | SKIP | Service pattern je OK, konverzija nije potrebna |
 
 ---

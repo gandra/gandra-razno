@@ -68,6 +68,7 @@
 - Cascading dropdowns (Organization → Compartment → Resource → Metric)
 - ✅ **i18n kompletno** (2026-03-13): i18next + HttpBackend, 2 jezika (cyril/latin), 3 namespace-a (common/sla/navbar). **100% stringova prevedeno** — sve stranice, widgeti, komponente, forme, dijalozi, chartovi (30 TSX fajlova koristi `useTranslation()`). Suspense fallback.
 - ✅ **Widget pattern** (2026-03-13): 5 widgeta ekstrahovano po oci-ui patternu — `SlaDefinitionsTable`, `BreachTable`, `ScheduleTable`, `StoredReportTable`, `NotificationTable`. Stranice su tanak wrapper (header + PageInfoButton + widget). Widgeti sadrže data fetching, filtere, tabelu, paginaciju i akcione dijaloge. Direktorijum: `src/widgets/WidgetName/WidgetName.tsx`.
+- ✅ **TenantSelect usklađen sa oci-ui** (2026-03-13): Custom GroupedSelect dropdown vizuelno odgovara Mantine Select-u. Iste širine (16.25rem tenant, max-w-40 subscription), grupisanje po organizaciji, check ikona za selektovano, subscription prikazuje samo subscriptionID (kao oci-ui). Isti API endpointi (`/codebook/tenants`, `/codebook/subscriptions`). Tenant sortiranje alphabetically sa "name not defined" na kraju (kao oci-ui).
 
 **Parcijalno implementirano:**
 - Penalty polja postoje u formi ali se ne prikazuju u izveštajima
