@@ -1,6 +1,6 @@
 # SLA Backlog
 
-> **Poslednje ažuriranje**: 2026-03-12
+> **Poslednje ažuriranje**: 2026-03-13
 
 ---
 
@@ -83,6 +83,25 @@
 | G-16 | ~~Notifikacije za bitne evente~~ | ~~7-9h~~ | ~~SREDNJI~~ | ✅ DONE (backend + frontend). |
 | G-16-FE | ~~SLA Notifikacije — Frontend~~ | ~~4-6h~~ | ~~SREDNJI~~ | ✅ DONE. NotificationBell (badge + dropdown), SlaNotificationListPage (tabela, filteri, pagination, dismiss), slaNotificationService, tipovi. |
 | G-17 | ~~Email delivery za zakazane izveštaje~~ | ~~4-6h~~ | ~~SREDNJI~~ | ✅ DONE (2026-03-12). Detalji u "Završeno" sekciji. |
+
+---
+
+## UI Alignment (oci-ui pattern usklađivanje) — ✅ DONE (2026-03-13)
+
+Usklađivanje `oci-sla-management-poc-ui` sa `oci-ui` code patterns-om. Detaljan plan: `todo/sla-poc-ui-alignment.md`. Dokumentovani paterni: `oci-sla-management-poc-ui/docs/oci-ui-code-patterns.md`.
+
+| # | Stavka | Status | Napomena |
+|---|--------|--------|----------|
+| A-01 | Folder layout (`components/`, `hooks/`, `pages/`, `services/`, `types/`, `widgets/`) | ✅ DONE | Struktura usklađena sa oci-ui |
+| A-02 | Alias `@/` u tsconfig + vite.config | ✅ DONE | Path aliasi po oci-ui patternu |
+| A-03 | Reusable hooks (`usePagination`) | ✅ DONE | Client-side pagination hook |
+| A-05 | Sonner toast umesto `console.error`/`window.alert` | ✅ DONE | Toaster + toast integrisan |
+| A-06 | Constants/enums fajl | ✅ DONE | `constants.ts` sa API rutama |
+| A-07 | PageInfoButton komponenta | ✅ DONE | Po oci-ui patternu |
+| A-08 | Widget pattern (page = thin wrapper, widget = self-contained) | ✅ DONE | 5 widgeta: SlaDefinitionsTable, BreachTable, ScheduleTable, StoredReportTable, NotificationTable |
+| A-09 | NavDropdown komponenta | ✅ DONE | Dropdown sa hover+click, chevron, per-item opisi |
+| A-10 | i18n (i18next + HttpBackend) | ✅ DONE | 2 jezika (cyril/latin), 3 namespace-a (common/sla/navbar), Suspense fallback |
+| A-04 | Api object conversion | SKIP | Service pattern je OK, konverzija nije potrebna |
 
 ---
 

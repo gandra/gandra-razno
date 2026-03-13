@@ -66,6 +66,8 @@
 - JWT autentifikacija sa token persistence
 - Architecture documentation viewer (3 markdown fajla)
 - Cascading dropdowns (Organization → Compartment → Resource → Metric)
+- ✅ **i18n infrastruktura** (2026-03-13): i18next + HttpBackend, 2 jezika (cyril/latin), 3 namespace-a (common/sla/navbar). SlaNavigation potpuno prevedena. Suspense fallback, `useTranslation()` hook pattern.
+- ✅ **Widget pattern** (2026-03-13): 5 widgeta ekstrahovano po oci-ui patternu — `SlaDefinitionsTable`, `BreachTable`, `ScheduleTable`, `StoredReportTable`, `NotificationTable`. Stranice su tanak wrapper (header + PageInfoButton + widget). Widgeti sadrže data fetching, filtere, tabelu, paginaciju i akcione dijaloge. Direktorijum: `src/widgets/WidgetName/WidgetName.tsx`.
 
 **Parcijalno implementirano:**
 - Penalty polja postoje u formi ali se ne prikazuju u izveštajima

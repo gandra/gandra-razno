@@ -569,6 +569,8 @@ Email putem REST ka oci-monitor, bez tabele. Odbačen jer: **ne podržava Z-1 (U
 
 ## 7. Frontend plan — ✅ DONE
 
+> **A-08 Widget refactor** (2026-03-13): `SlaNotificationListPage` je refaktorisana po oci-ui widget patternu. Logika (data fetching, filteri, tabela, paginacija, dismiss akcija) ekstrahovana u `src/widgets/NotificationTable/NotificationTable.tsx`. Stranica je sada tanak wrapper (~45 linija) sa header-om, `PageInfoButton` i `<NotificationTable />` widgetom.
+
 ### 8.1 oci-sla-management-poc-ui — ✅ DONE
 
 **Samo SLA notifikacije** — header dropdown sa jednim tipom.
