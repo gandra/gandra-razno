@@ -729,7 +729,7 @@ Ovaj princip maksimalno olaksava posao UI tima — kad otvore POC kod, prepoznaj
 | 5 (must) | A-02 | ~~Pages.tsx + Layout.tsx~~ | ~~1-2h~~ | ✅ **DONE** (2026-03-13): App=providers, Pages=routes, Layout=SlaNavigation+Outlet+Footer, SlaNavigation uklonjeno iz 9 stranica |
 | 6 (must) | A-11 | Tenant/Org selector u header | 3-4h | **Kljucno za oci-ui paritet** — header identican |
 | 7 (should) | A-05 | ~~Toast sistem (Sonner)~~ | ~~1-2h~~ | ✅ **DONE** (2026-03-13): sonner instaliran, Toaster u App.tsx, sve alert() zamenjene sa toast.success/error |
-| 8 (should) | A-09 | Mutation hookovi | 2-3h | Konzistentnost sa oci-ui |
+| 8 (should) | A-09 | ~~Mutation hookovi~~ | ~~2-3h~~ | ✅ **DONE** (2026-03-13): 6 mutation hook fajlova (17 hookova) u hooks/api/. Integracija u stranice kad se reads prebace na useQuery |
 | 9 (nice) | A-10 | i18n setup | 3-4h | Najveci effort, ali lep-to-have |
 | 10 (nice) | A-08 | Widget pattern (tabele) | 4-6h | Najveci effort, srednji impact |
 | 11 (skip) | A-04 | Api objekat konverzija | 2-3h | Service pattern je OK |
