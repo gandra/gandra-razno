@@ -2,11 +2,16 @@
 
 import typer
 
+from gandra_tools.tools.youtube.cli import youtube_app
+
 app = typer.Typer(
     name="gandra-tools",
     help="Swiss-army toolset — YouTube transcripts, RAG research, file ops, and more.",
     no_args_is_help=True,
 )
+
+# ── Tool subcommands ─────────────────────────────────────────
+app.add_typer(youtube_app, name="youtube")
 
 # ── Auth commands ────────────────────────────────────────────
 auth_app = typer.Typer(help="Authentication commands.")

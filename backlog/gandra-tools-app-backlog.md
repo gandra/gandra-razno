@@ -11,7 +11,7 @@
 |------|------|--------|----------|
 | **1** | Scaffold + core infra | **DONE** | 16 src + 8 test fajlova, 27 testova |
 | **2** | Publisher modul | **DONE** | 8 formattera + service + router + 30 testova |
-| **3** | YouTube transcript | PLANIRANO | Prvi tool end-to-end |
+| **3** | YouTube transcript | **DONE** | schemas, service, router, CLI (interactive), 22 testova |
 | **4** | CLI framework | PLANIRANO | Typer sa autodiscovery |
 | **5** | Image Text Extractor | PLANIRANO | OCR + transparent PNG |
 | **6** | RAG Research | PLANIRANO | Multi-link analiza |
@@ -74,12 +74,13 @@
 
 | # | Stavka | Status |
 |---|--------|--------|
-| 3.1 | YouTube schemas | PLANIRANO |
-| 3.2 | YouTube service | PLANIRANO |
-| 3.3 | YouTube router | PLANIRANO |
-| 3.4 | YouTube CLI | PLANIRANO |
-| 3.5 | YouTube standalone (interactive) | PLANIRANO |
-| 3.6 | YouTube testovi (~20) | PLANIRANO |
+| 3.1 | YouTube schemas (TranscriptInput/Output, slugify_title) | **DONE** |
+| 3.2 | YouTube service (extract, merge segments, publish) | **DONE** |
+| 3.3 | YouTube router (POST /api/v1/youtube/transcript) | **DONE** |
+| 3.4 | YouTube CLI (`gandra-tools youtube transcript`) | **DONE** |
+| 3.5 | YouTube standalone (`python -m gandra_tools.tools.youtube.transcript`) | **DONE** |
+| 3.6 | YouTube TOOL_META (plugin autodiscovery) | **DONE** |
+| 3.7 | YouTube testovi (22: 12 schema + 10 service) | **DONE** |
 
 ---
 
