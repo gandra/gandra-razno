@@ -14,7 +14,7 @@
 | **3** | YouTube transcript | **DONE** | schemas, service, router, CLI (interactive), 22 testova |
 | **4** | CLI framework | **DONE** | Autodiscovery, publish CLI, 13 testova |
 | **5** | Image Text Extractor | **DONE** | schemas, OCR service, router, CLI, 15 testova |
-| **6** | RAG Research | PLANIRANO | Multi-link analiza |
+| **6** | RAG Research | **DONE** | 4-pass pipeline, schemas, service, router, CLI, 17 testova |
 | **7** | File operations | PLANIRANO | Search + rename |
 | **8** | Web UI | PLANIRANO | Vue 3 + Vite + Tailwind |
 | **9** | DevTools | PLANIRANO | API tester, code review |
