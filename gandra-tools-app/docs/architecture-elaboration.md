@@ -2785,7 +2785,7 @@ gandra-tools-app/
 | Faza | Opis | Deliverables |
 |------|------|-------------|
 | **1** | Scaffold + core infra | ~~pyproject.toml, docker-compose-local.yml, config, auth, LLM factory~~ **DONE** (27 testova) |
-| **2** | Publisher modul | Formatteri (JSON/MD/TXT/HTML), Jinja2 templates, ~20 testova |
+| **2** | Publisher modul | ~~Formatteri (JSON/MD/TXT/HTML + social), Jinja2 templates~~ **DONE** (30 testova) |
 | **3** | YouTube transcript | Prvi tool end-to-end (API + CLI + standalone + publish) |
 | **4** | CLI framework | Typer sa autodiscovery, config subcommand |
 | **5** | Image Text Extractor | OCR pipeline, transparent PNG rendering, interactive mode |

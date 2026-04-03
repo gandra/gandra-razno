@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from gandra_tools.core.config import get_settings
 from gandra_tools.core.plugin import registry
 from gandra_tools.db.session import close_db, init_db
-from gandra_tools.routers import auth, health
+from gandra_tools.routers import auth, health, publish
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     # Core routers
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(publish.router)
 
     # Tool routers (from plugin autodiscovery)
     for tool_router in registry.routers:

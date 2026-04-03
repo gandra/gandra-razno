@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ metadata.get('title', content_type | replace('_', ' ') | title) }}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.6; }
+  h1 { border-bottom: 2px solid #2563eb; padding-bottom: 0.5rem; }
+  h2 { color: #1e40af; margin-top: 2rem; }
+  ul { padding-left: 1.5rem; }
+  .meta { color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+  th { background: #f3f4f6; }
+</style>
+</head>
+<body>
+<h1>{{ metadata.get('title', content_type | replace('_', ' ') | title) }}</h1>
+{% if metadata %}
+<div class="meta">
+  {% if metadata.get('date') %}Date: {{ metadata.date }} | {% endif %}
+  {% if metadata.get('author') %}Author: {{ metadata.author }}{% endif %}
+</div>
+{% endif %}
+
+{% for key, value in content.items() %}
+<h2>{{ key | replace('_', ' ') | title }}</h2>
+{% if value is string %}
+<p>{{ value }}</p>
+{% elif value is mapping %}
+<ul>
+{% for k, v in value.items() %}
+  <li><strong>{{ k }}</strong>: {{ v }}</li>
+{% endfor %}
+</ul>
+{% elif value is iterable %}
+<ul>
+{% for item in value %}
+  <li>{{ item }}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>{{ value }}</p>
+{% endif %}
+{% endfor %}
+
+</body>
+</html>

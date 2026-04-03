@@ -10,7 +10,7 @@
 | Faza | Opis | Status | Napomena |
 |------|------|--------|----------|
 | **1** | Scaffold + core infra | **DONE** | 16 src + 8 test fajlova, 27 testova |
-| **2** | Publisher modul | PLANIRANO | JSON/MD/TXT/HTML + social (FB, LI, IG, X) |
+| **2** | Publisher modul | **DONE** | 8 formattera + service + router + 30 testova |
 | **3** | YouTube transcript | PLANIRANO | Prvi tool end-to-end |
 | **4** | CLI framework | PLANIRANO | Typer sa autodiscovery |
 | **5** | Image Text Extractor | PLANIRANO | OCR + transparent PNG |
@@ -54,19 +54,19 @@
 
 | # | Stavka | Status |
 |---|--------|--------|
-| 2.1 | BaseFormatter ABC | PLANIRANO |
-| 2.2 | JSON formatter | PLANIRANO |
-| 2.3 | Markdown formatter | PLANIRANO |
-| 2.4 | Text formatter | PLANIRANO |
-| 2.5 | HTML formatter | PLANIRANO |
-| 2.6 | Facebook formatter | PLANIRANO |
-| 2.7 | LinkedIn formatter | PLANIRANO |
-| 2.8 | Instagram formatter | PLANIRANO |
-| 2.9 | X (Twitter) formatter | PLANIRANO |
-| 2.10 | PublisherService | PLANIRANO |
-| 2.11 | Jinja2 templates | PLANIRANO |
-| 2.12 | Publisher router | PLANIRANO |
-| 2.13 | Publisher testovi (~25) | PLANIRANO |
+| 2.1 | BaseFormatter ABC | **DONE** |
+| 2.2 | JSON formatter | **DONE** |
+| 2.3 | Markdown formatter + generic.md.j2 | **DONE** |
+| 2.4 | Text formatter | **DONE** |
+| 2.5 | HTML formatter + generic.html.j2 | **DONE** |
+| 2.6 | Facebook formatter | **DONE** |
+| 2.7 | LinkedIn formatter | **DONE** |
+| 2.8 | Instagram formatter | **DONE** |
+| 2.9 | X (Twitter) formatter | **DONE** |
+| 2.10 | PublisherService | **DONE** |
+| 2.11 | Jinja2 templates (generic.md.j2, generic.html.j2) | **DONE** |
+| 2.12 | Publisher router + main.py registration | **DONE** |
+| 2.13 | Publisher testovi (30: 4 json + 4 text + 3 md + 3 html + 12 social + 12 service + 4 api) | **DONE** |
 
 ---
 

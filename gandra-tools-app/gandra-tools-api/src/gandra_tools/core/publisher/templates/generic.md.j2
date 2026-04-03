@@ -1,0 +1,29 @@
+# {{ metadata.get('title', content_type | replace('_', ' ') | title) }}
+
+{% if metadata.get('date') %}
+> Date: {{ metadata.date }}
+{% endif %}
+{% if metadata.get('author') %}
+> Author: {{ metadata.author }}
+{% endif %}
+
+---
+
+{% for key, value in content.items() %}
+## {{ key | replace('_', ' ') | title }}
+
+{% if value is string %}
+{{ value }}
+{% elif value is mapping %}
+{% for k, v in value.items() %}
+- **{{ k }}**: {{ v }}
+{% endfor %}
+{% elif value is iterable %}
+{% for item in value %}
+- {{ item }}
+{% endfor %}
+{% else %}
+{{ value }}
+{% endif %}
+
+{% endfor %}
