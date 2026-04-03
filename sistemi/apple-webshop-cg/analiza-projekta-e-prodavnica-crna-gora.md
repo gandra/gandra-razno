@@ -427,72 +427,92 @@ Drugi dobija poruku odmah — nema čekanja, nema pozivanja kupca naknadno.
 > **Kontekst:** Sastanak sa Abacus/Bencom timom. Fokus na ERP integraciju.
 > Pitanja za Fazu 2 (fiskalizacija) su u `fiskalizacija-crna-gora-faza2.md`.
 
-### 3.1. ABACUS API — Pristup i konfiguracija (BLOKIRAJUĆE)
-
-> Bez odgovora na ova pitanja ne možemo početi razvoj. Najviši prioritet.
+### 3.1. PRISTUP API-JU (BLOKIRAJUĆE — bez ovoga ne počinjemo)
 
 | # | Pitanje | Kategorija | Važnost | Uticaj |
 |---|---------|-----------|---------|--------|
 | **1** | **Koji su production URL, klijent ID i token za Abacus API?** Format: `api.bencomltd.com/{klijent}/Main/{funkcija}?token=...` | ERP/Abacus | 🔴 Kritično | **Blokirajuće.** Bez kredencijala ne možemo pristupiti nijednom endpoint-u. |
-| **2** | **Da li postoji TEST okruženje za API** (vidimo `APITest` u dokumentaciji URL-u)? Da li možemo dobiti test token? | ERP/Abacus | 🔴 Kritično | **Blokirajuće za razvoj.** Testiranje na produkciji rizično — ne želimo slučajno kreirati narudžbine. |
-| **3** | **Da li je API dokumentacija (v_20250325) aktuelna?** Da li su svi endpoint-i aktivni? Ima li nedokumentovanih? | ERP/Abacus | 🔴 Kritično | Ako neki endpoint ne radi ili se promijenio, moramo prilagoditi plan. |
+| **2** | **Da li postoji TEST okruženje za API** (vidimo `APITest` u URL-u dokumentacije)? Da li možemo dobiti test token? | ERP/Abacus | 🔴 Kritično | **Blokirajuće.** Testiranje na produkciji rizično — ne želimo slučajno kreirati narudžbine. |
+| **3** | **Da li je API dokumentacija (v_20250325) aktuelna?** Svi endpoint-i aktivni? Ima li nedokumentovanih? Da li API radi 24/7 ili ima maintenance window? | ERP/Abacus | 🔴 Kritično | Ako nešto ne radi ili se promijenilo, moramo prilagoditi plan. Ako ima downtime → moramo predvidjeti fallback. |
+| **4** | **Da li API ima rate limiting?** Koliko poziva/min? Da li podržava pagination ili vraća sve odjednom? | ERP/Abacus | 🟡 Srednji | Koristimo API i za periodični sync i za real-time checkout provjeru — moramo znati kapacitet. |
+| **5** | **Primjer: možete li nam dati realni odgovor `getItems` za 2-3 artikla** (npr. iPhone 16 Pro 256GB, AirPods Pro 3)? | ERP/Abacus | 🟠 Visok | Jedan konkretan primjer eliminše desetine pitanja o formatu cijena, slika, detalja, popusta. |
 
-### 3.2. ABACUS API — getItems: Proizvodi, zalihe, cijene (CORE INTEGRACIJA)
+### 3.2. KATALOG PROIZVODA — getItems (CORE ZA FAZU 1)
 
-> Ovo je srce integracije. `getItems` je najbitniji endpoint za Fazu 1.
-
-| # | Pitanje | Kategorija | Važnost | Uticaj |
-|---|---------|-----------|---------|--------|
-| **4** | **Da li `getItems` bez parametara vraća SVE artikle?** Ili samo aktivne? Da li ima neaktivnih/skrivenih? | ERP/Abacus | 🟠 Visok | Ako vraća neaktivne, moramo filtrirati. Ako ne → prikazaćemo artikle kojih nema. |
-| **5** | **Koliko artikala ukupno vraća `getItems`?** Procjena: 200-400? Ili više? | ERP/Abacus | 🟠 Visok | Utiče na performanse sync-a. Sa <500 trivijalno. |
-| **6** | **Šta tačno sadrži `image[]` polje?** Pune URL adrese, relativne putanje, ili base64? Gdje su hostovane? | ERP/Abacus | 🟠 Visok | URL → direktno. Putanje → base URL. Nema → ručni upload. |
-| **7** | **Kako radi `details[]`?** Da li su Apple konfiguracije (128/256/512GB, boja) `details`, ili zasebni artikli? | ERP/Abacus | 🟠 Visok | MedusaJS varijante (1 proizvod, više opcija) vs zasebni proizvodi. |
-| **8** | **Da li `group` odgovara kategorijama na sajtu?** (Mac, iPhone, iPad...) Nivoi dubine? | ERP/Abacus | 🟡 Srednji | Mapiranje na MedusaJS kategorije. |
-| **9** | **Da li se `price` i `price_rrp` razlikuju?** Koji za online? | Poslovno/ERP | 🟠 Visok | Pogrešna cijena = poslovni gubitak. |
-| **10** | **Postoji li poseban cijenovnik za online?** Ili online = offline? Koji `id_c`? | Poslovno/ERP | 🟠 Visok | Ako različite → moramo koristiti `id_c` u sync-u. |
-| **11** | **Koliko često se mijenjaju cijene i zalihe?** | Poslovno | 🟡 Srednji | Frekvencija sync-a: 15 min vs 60 min. |
-| **12** | **Da li `getItems(ids=[X,Y], id_m=Z)` odgovara brzo?** <2 sekunde za 1-5 artikala? | ERP/Abacus | 🟠 Visok | Na checkout-u (real-time check). Spor → kupac odustaje. |
-| **13** | **Da li `quantity` reflektuje TRENUTNO stanje?** Ažurira li se odmah po prodaji sa kase? | ERP/Abacus | 🟠 Visok | Ako kasni → overselling moguć i pored real-time check-a. |
-| **14** | **Postoji li API za REZERVACIJU količine?** Privremeno zaključavanje bez prodajnog dokumenta? | ERP/Abacus | 🟡 Srednji | DA → idealan (lock→pay→confirm). NE → lokalni MedusaJS ReservationItem (vidi 2.3). |
-
-### 3.3. ABACUS API — getWorkUnits: Magacini i lokacije
+> `getItems` je srce integracije. Sva pitanja u ovom bloku se odnose na to kako Abacus modeluje artikle i kako ćemo ih preslikati u MedusaJS webshop.
 
 | # | Pitanje | Kategorija | Važnost | Uticaj |
 |---|---------|-----------|---------|--------|
-| **15** | **Koliko radnih jedinica (magacina) vraća `getWorkUnits`?** Podgorica + Tivat? Centralni? | ERP/Abacus | 🟠 Visok | Mapiranje na MedusaJS stock lokacije. |
-| **16** | **Koji `id_m` odgovara kojoj lokaciji?** Tačni ID-ovi za PG i Tivat. | ERP/Abacus | 🟠 Visok | Bez ovoga nema prikaza stanja po lokaciji. |
-| **17** | **Da li online narudžbine uvijek idu sa jednog magacina?** Ili zavisi od kupca? | Poslovno | 🟡 Srednji | Fulfillment logika — odakle se šalje? |
+| **6** | **Da li `getItems` bez parametara vraća SVE artikle ili samo aktivne?** Da li ima neaktivnih/skrivenih koje ne treba prikazivati online? **Koliko artikala ukupno?** (procjena: 200-400?) | ERP/Abacus | 🟠 Visok | Filtriranje + performanse sync-a. Sa <500 artikala sync je trivijalan, ali moramo znati šta filtrirati. |
+| **7** | **Kako su Apple konfiguracije modelovane?** Npr. iPhone 16 Pro u 128/256/512GB i 4 boje — da li je to 1 artikal sa `details[]` (type:memorija, value:256GB), ili 12 zasebnih artikala u getItems? | ERP/Abacus | 🟠 Visok | Ako `details[]` → koristimo MedusaJS varijante (1 product, N variants). Ako zasebni artikli → svaki je zaseban MedusaJS product. Kompletno mijenja strukturu kataloga. |
+| **8** | **Šta sadrži `image[]` polje?** Pune URL adrese (https://...), relativne putanje, ili base64? Gdje su slike hostovane? Da li su kvalitetne za webshop (visoka rezolucija, bijela pozadina)? | ERP/Abacus | 🟠 Visok | URL → koristimo direktno. Putanje → treba base URL. Nema/loš kvalitet → ručni upload Apple press slika. |
+| **9** | **Da li `group` polje odgovara kategorijama na sajtu** (Mac, iPhone, iPad...)? Koliko nivoa dubine ima? Ili je "flat" (samo jedan nivo)? | ERP/Abacus | 🟡 Srednji | Mapiranje na MedusaJS kategorije. Ako je flat → ručno kreiranje podkategorija. |
+| **10** | **Da li postoji mehanizam za detekciju promjena** u artiklima? Timestamp zadnje izmjene, verzija, change feed? | ERP/Abacus | 🟡 Srednji | DA → sync samo promijenjenih. NE → full sync svaki put (ok za <500, ali dobro je znati). |
+| **11** | **Koliko često se mijenjaju podaci o artiklima?** Cijene, opisi, slike — dnevno, sedmično, rijetko? | Poslovno | 🟡 Srednji | Određuje sync frekvenciju: 15 min (često) vs 60 min (rijetko). |
 
-### 3.4. ABACUS API — postSale: Narudžbine (ZA PRIPREMU FAZE 2)
+### 3.3. CIJENE, CIJENOVNICI I POPUSTI (KRITIČNO — pogrešna cijena = poslovni gubitak)
 
-> U Fazi 1 narudžbine se ručno unose u Abacus. Ali moramo razumjeti `postSale` za planiranje automatizacije.
+> Abacus ima **tri sloja** koja utiču na konačnu cijenu: polja `price`/`price_rrp`, cijenovnici (`getPriceLists` + parametar `id_c`), i popusti (`discount` + `id_partner`). **Moramo razumjeti kako rade zajedno** — inače kupac vidi pogrešnu cijenu.
+>
+> Iz API dokumentacije:
+> - `getItems` vraća `price` (iz osnovnog cijenovnika) i `price_rrp` (maloprodajna)
+> - Parametar `id_c` mijenja koji cijenovnik se koristi za `price`
+> - Parametar `id_partner` proračunava cijenu i popust za konkretnog kupca
+> - API kaže: *"cijena je proračunata, popust je tu samo za prikaz, nema potrebe da preračunavate"*
 
 | # | Pitanje | Kategorija | Važnost | Uticaj |
 |---|---------|-----------|---------|--------|
-| **18** | **Šta tačno kreira `postSale`?** Prodajni nalog, predračun, otpremnica? | ERP/Abacus | 🟡 Srednji | Da znamo šta operater ručno radi i šta ćemo automatizovati. |
-| **19** | **Da li `postSale` automatski smanjuje stanje zaliha?** Ili tek kad se potvrdi? | ERP/Abacus | 🟡 Srednji | Da li sync odmah reflektuje online narudžbinu. |
-| **20** | **Da li `postSale` pokreće fiskalizaciju?** Ili samo kreira dokument? | ERP/Abacus | 🟡 Srednji | Za Fazu 2 — ako DA → fiskalizacija "besplatna" uz postSale. |
-| **21** | **Da li `postSale` vraća ID dokumenta?** U kom polju? | ERP/Abacus | 🟡 Srednji | Tracking: MedusaJS order ↔ Abacus document. |
-| **22** | **Da li `id_partner` mora biti prethodno kreiran?** Ili narudžbina može bez partnera (B2C)? | ERP/Abacus | 🟡 Srednji | Ako mora → AddPartner pa postSale. Ako ne → jednostavnije. |
+| **12** | **Koliko cijenovnika vraća `getPriceLists`?** Da li ih je više aktivnih istovremeno, ili je uvijek jedan "main"? Koji je merodavan za maloprodaju? | ERP/Abacus | 🔴 Kritično | Ako ih je više i koristimo pogrešan → pogrešne cijene na sajtu za sve artikle. |
+| **13** | **Koji cijenovnik koristiti za online prodaju?** Da li za `getItems` proslijeđujemo `id_c`? Ako da — koji ID tačno? Ili pozivamo BEZ `id_c` i koristimo default? **Da li su online i offline cijene iste?** | Poslovno/ERP | 🔴 Kritično | Ovo je PRVA stvar koju moramo znati prije go-live. Jednoznačno: "za online koristite id_c=X" ili "bez id_c, default je ok". |
+| **14** | **`price` vs `price_rrp` — koji prikazujemo kupcu?** Da li `price` = veleprodajna a `price_rrp` = maloprodajna? Ili oboje ista vrijednost? | ERP/Abacus | 🟠 Visok | Pogrešno polje = pogrešna cijena. `price_rrp` zvuči kao "recommended retail price", ali treba potvrdu. |
+| **15** | **Kako rade popusti (`discount`)?** Da li je `price` VEĆ umanjen za popust, ili moramo sami računati `price × (1 - discount/100)`? Da li `discount` postoji uvijek ili samo kad je aktivan? | ERP/Abacus | 🟠 Visok | API kaže "cijena je proračunata, popust za prikaz". Ali: da li to znači da `price=850` za iPhone koji inače košta 1000 i `discount=15`? Ili `price=1000` i mi računamo? |
+| **16** | **Da li popusti zavise od kupca (`id_partner`)?** Npr. EDU institucija dobija drugačiju cijenu? Za anonimne B2C kupce — pozivamo getItems bez `id_partner`? Da li se popusti iz `getPromotions` automatski reflektuju u `getItems` ili su to odvojeni sistemi? | Poslovno/ERP | 🟡 Srednji | B2C = bez partnera (većina kupaca). B2B/EDU = sa partnerom. Moramo znati default i kako se slojevi kombinuju. |
 
-### 3.5. ABACUS API — Tehnički detalji
+### 3.4. ZALIHE, MAGACINI I REZERVACIJA (ZAŠTITA OD OVERSELLING-A)
+
+> Ovaj blok pokriva `getWorkUnits` (koji magacini postoje), `quantity` iz `getItems` (stanje zaliha), i ključno pitanje o rezervaciji. Vidi sekciju 2.3 za kompletnu elaboraciju checkout stock check strategije.
 
 | # | Pitanje | Kategorija | Važnost | Uticaj |
 |---|---------|-----------|---------|--------|
-| **23** | **Da li API ima rate limiting?** Koliko poziva/min? | ERP/Abacus | 🟡 Srednji | Checkout real-time check + scheduled sync. Treba kapacitet. |
-| **24** | **Da li API podržava pagination?** Ili sve u jednom odgovoru? | ERP/Abacus | 🟡 Srednji | Sa <500 artikala vjerovatno ok, ali potvrditi. |
-| **25** | **Mehanizam za detekciju promjena?** Timestamp, verzija, change feed? | ERP/Abacus | 🟡 Srednji | DA → delta sync. NE → full sync (ok za mali katalog). |
-| **26** | **Da li API radi 24/7?** Maintenance window? | ERP/Abacus | 🟡 Srednji | Downtime → checkout fallback na lokalne zalihe (vidi 2.3, Scenario A). |
-| **27** | **Ponašanje pri neispravnom request-u?** Uvijek `Error` polje ili HTTP 500 bez tijela? | ERP/Abacus | 🟢 Nizak | Error handling robustnost. |
+| **17** | **Koliko radnih jedinica (magacina) vraća `getWorkUnits`?** Podgorica + Tivat? Postoji li centralni magacin? **Koji `id_m` odgovara kojoj lokaciji?** | ERP/Abacus | 🟠 Visok | Mapiranje na MedusaJS stock lokacije. Bez tačnih ID-ova ne možemo prikazati "Na stanju u PG: 3, Tivat: 1". |
+| **18** | **Da li `quantity` u `getItems` reflektuje TRENUTNO stanje u realnom vremenu?** Ažurira li se odmah po prodaji sa kase? Ili može kasniti? | ERP/Abacus | 🟠 Visok | Koristimo `quantity` za real-time check na checkout-u (vidi 2.3). Ako kasni → overselling moguć. |
+| **19** | **Da li `getItems(ids=[X,Y], id_m=Z)` odgovara brzo?** <2 sekunde za 1-5 artikala? | ERP/Abacus | 🟠 Visok | Pozivamo na svakom checkout-u. Spor odgovor (>3s) → kupac čeka → odustaje. |
+| **20** | **Da li Abacus podržava REZERVACIJU / ZAKLJUČAVANJE količine na lageru?** Detaljna elaboracija ispod ⬇️ | ERP/Abacus | 🟠 Visok | Direktno utiče na arhitekturu checkout-a i zaštitu od overselling-a (vidi 2.3). |
+| **21** | **Da li online narudžbine uvijek idu sa jednog magacina?** Ili zavisi od lokacije kupca? Uvijek iz centralnog? | Poslovno | 🟡 Srednji | Fulfillment logika — iz kog magacina se šalje? |
+
+> **Elaboracija pitanja #20 — Rezervacija zaliha u Abacusu:**
+>
+> Želimo da na checkout-u, PRIJE nego kupac plati, privremeno "zaključamo" naručenu količinu u Abacusu tako da drugi kupci (online ili u fizičkoj prodavnici) ne mogu kupiti isti artikal. Nakon uspješnog plaćanja → potvrđujemo. Ako plaćanje ne prođe → otključavamo.
+>
+> **Konkretno pitamo:**
+> - Da li Abacus ima koncept **rezervacije** ili **prednarudžbine** koji privremeno smanjuje raspoloživu količinu bez kreiranja konačnog prodajnog dokumenta?
+> - Ako da — **postoji li API endpoint za to?** (nije dokumentovan u v_20250325, ali možda postoji interni mehanizam)
+> - Da li `postSale` može služiti kao mehanizam zaključavanja? Tj. da li kreira dokument koji "drži" količinu, a koji se može stornirati ako plaćanje ne prođe?
+> - Da li postoji **timeout / automatsko otključavanje**? Npr. ako ne potvrdimo rezervaciju za 15 min, da li se automatski oslobađa?
+> - Ako Abacus NE podržava rezervaciju — **da li barem `quantity` u `getItems` reflektuje stanje u realnom vremenu** (da možemo raditi real-time check)?
+>
+> **Zašto je ovo bitno:**
+> Bez Abacus rezervacije, koristićemo lokalni MedusaJS ReservationItem (vidi sekciju 2.3). To štiti od duplih online kupovina, ali NE štiti od situacije gdje operater u prodavnici proda zadnji komad dok je online kupac na checkout-u. Sa Abacus rezervacijom → zaštita je potpuna na svim kanalima.
+
+### 3.5. NARUDŽBINE — postSale (PRIPREMA FAZE 2)
+
+> U Fazi 1 operater ručno unosi narudžbine u Abacus. Ali moramo razumjeti `postSale` za planiranje automatizacije.
+
+| # | Pitanje | Kategorija | Važnost | Uticaj |
+|---|---------|-----------|---------|--------|
+| **22** | **Šta tačno kreira `postSale`?** Prodajni nalog, predračun, otpremnica? **Da li automatski smanjuje stanje zaliha** ili tek kad se dokument potvrdi? | ERP/Abacus | 🟡 Srednji | Da znamo šta operater danas ručno radi. Ako smanjuje zalihe → utiče na sync logiku. |
+| **23** | **Da li `postSale` pokreće fiskalizaciju?** Ili samo kreira dokument? **Da li vraća ID kreiranog dokumenta** u response-u? | ERP/Abacus | 🟡 Srednji | Za Fazu 2: ako pokreće fiskalizaciju → ne trebamo custom fiskalni modul. ID za tracking. |
+| **24** | **Da li `id_partner` u `postSale` mora biti prethodno kreiran** (`AddPartner`)? Ili narudžbina može bez partnera za B2C kupce? | ERP/Abacus | 🟡 Srednji | Ako mora → workflow: AddPartner → postSale. Ako ne → jednostavnije za Fazu 2. |
+| **25** | **Šta se desi ako pošaljemo `postSale` za artikal koji nije na stanju?** Greška? Ili se kreira dokument svejedno? | ERP/Abacus | 🟡 Srednji | Za error handling u Fazi 2 — da znamo da li Abacus sam validira stanje. |
 
 ### 3.6. INFRASTRUKTURA I MIGRACIJA
 
 | # | Pitanje | Kategorija | Važnost | Uticaj |
 |---|---------|-----------|---------|--------|
-| **28** | **Da li ostajemo na domenu icentar.me?** | DevOps | 🟠 Visok | DNS, SSL, SEO redirecti. |
-| **29** | **Gdje će se hostovati MedusaJS?** Cloud (AWS, DigitalOcean, Hetzner) ili lokalno? | DevOps | 🟠 Visok | Infrastruktura, troškovi, latencija. |
-| **30** | **Da li AllSecure Payment Gateway ima API dokumentaciju?** Podržava li integraciju sa custom platformama? | Payment | 🟠 Visok | Bez payment-a nema checkout-a. Backup: Stripe (već pripremljen u kodu). |
-| **31** | **Da li postoje sadržaji na WP sajtu koji se moraju migrirati?** Blog, landing stranice, SEO linkovi? | Migracija | 🟡 Srednji | Obim WP → MedusaJS migracije. |
+| **26** | **Da li ostajemo na domenu icentar.me?** | DevOps | 🟠 Visok | DNS, SSL, SEO redirecti. |
+| **27** | **Gdje će se hostovati MedusaJS?** Cloud (AWS, DigitalOcean, Hetzner) ili lokalno? | DevOps | 🟠 Visok | Infrastruktura, troškovi, latencija. |
+| **28** | **Da li AllSecure Payment Gateway ima API dokumentaciju?** Podržava li integraciju sa custom platformama? | Payment | 🟠 Visok | Bez payment-a nema checkout-a. Backup: Stripe (već pripremljen u kodu). |
+| **29** | **Da li postoje sadržaji na WP sajtu koji se moraju migrirati?** Blog, landing stranice, SEO linkovi? | Migracija | 🟡 Srednji | Obim WP → MedusaJS migracije. |
 
 > **Razriješena pitanja (ne treba pitati):**
 > - **Storefront:** Next.js 16.2.1 + React 19 + Tailwind CSS (vidi sekciju 1.3)
