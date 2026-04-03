@@ -2,7 +2,7 @@
 
 > **Datum:** 2026-04-03
 > **Autor:** Dragan Mijatović
-> **Status:** DRAFT v3
+> **Status:** DRAFT v4
 > **Referentni projekti:** `sistemi/zabbix-ai-backend`, `companydevs/companydevs-ai`
 
 ---
@@ -1713,11 +1713,11 @@ tests/
 
 | Kategorija | Br. testova (target) | Runner | Zavisnosti |
 |-----------|---------------------|--------|------------|
-| **Unit** | ~115 | `uv run pytest tests/unit/` | Nema (mocked) |
+| **Unit** | ~140 | `uv run pytest tests/unit/` | Nema (mocked) |
 | **Integration** | ~25 | `uv run pytest tests/integration/` | Docker servisi |
-| **API** | ~35 | `uv run pytest tests/api/` | Nema (TestClient) |
-| **CLI** | ~25 | `uv run pytest tests/cli/` | Nema (CliRunner) |
-| **Ukupno** | ~200 | `uv run pytest` | — |
+| **API** | ~45 | `uv run pytest tests/api/` | Nema (TestClient) |
+| **CLI** | ~35 | `uv run pytest tests/cli/` | Nema (CliRunner) |
+| **Ukupno** | ~245 | `uv run pytest` | — |
 
 ### Ključni test scenariji
 
@@ -1831,6 +1831,44 @@ test_llm_factory.py:
   ✓ test_llm_options_passed_through               — temperature, max_tokens forwarded
 ```
 
+#### Auth
+
+```
+test_auth.py:
+  ✓ test_cli_no_auth_required                     — CLI poziv prolazi bez JWT
+  ✓ test_api_requires_jwt                         — API bez tokena → 401
+  ✓ test_api_with_valid_jwt                       — API sa validnim tokenom → 200
+  ✓ test_api_with_expired_jwt                     — Istekao token → 401
+  ✓ test_login_valid_credentials                  — email+pass → JWT token
+  ✓ test_login_invalid_password                   — Pogrešan pass → 401
+  ✓ test_change_password_success                  — Stari OK + novi → ažurirano
+  ✓ test_change_password_wrong_current            — Pogrešan stari → 400
+```
+
+#### Settings + Environments
+
+```
+test_settings_service.py:
+  ✓ test_resolution_user_overrides_global         — User val > global val
+  ✓ test_resolution_env_overrides_global          — Env val > global val
+  ✓ test_resolution_user_overrides_env            — User val > env val > global val
+  ✓ test_resolution_fallback_to_default           — Nema user/env/global → default
+  ✓ test_get_with_source_returns_origin           — ("anthropic", "user")
+  ✓ test_set_user_setting                         — Set + read back
+  ✓ test_delete_user_reverts_to_global            — Obriši user → fallback global
+  ✓ test_list_all_shows_resolved                  — Svi settings sa izvorima
+
+test_environments.py:
+  ✓ test_create_environment                       — Novi env sa slug, name, ip_range
+  ✓ test_activate_environment                     — Set active → deactivate previous
+  ✓ test_only_one_active                          — Activate B → A postaje inactive
+  ✓ test_current_environment                      — Vrati active env
+  ✓ test_env_overrides_applied                    — Active env overrides u settings resolution
+  ✓ test_no_active_env_skips_overrides            — Nema active → skip env layer
+  ✓ test_delete_active_env_clears                 — Obriši active → nema active env
+  ✓ test_env_detect_by_ip_range                   — Match IP → suggest env
+```
+
 ### Test fixtures (conftest.py)
 
 ```python
@@ -1881,12 +1919,15 @@ docker compose -f docker-compose-local.yml down
 
 ### Za početak: SQLite (zero-config)
 
-| Što čuva | Format |
-|----------|--------|
-| Conversations (chat history) | JSON |
-| User settings (BYOK keys, defaults) | Key-value |
-| Research cache (scraped content) | Text + metadata |
-| Tool execution log | Structured log |
+| Tabela | Što čuva | Format |
+|--------|----------|--------|
+| `global_settings` | System-wide podešavanja | Key-value (JSON encoded) |
+| `user_settings` | Per-user overrides | Key-value (composite PK: user+key) |
+| `codebook_environments` | Lokacije / env definicije | Structured + JSON overrides |
+| `users` | Korisnici + hashed password | Structured |
+| `conversations` | Chat history | JSON |
+| `research_cache` | Scraped content cache | Text + metadata |
+| `tool_execution_log` | Execution history | Structured log |
 
 ### Kasnije (opciono): PostgreSQL + pgvector
 
@@ -1900,17 +1941,582 @@ SQLite (faza 1)  →  PostgreSQL + pgvector (faza 2)
 
 ## 14. Auth model
 
+### Princip: CLI bez auth, Web/API sa auth
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    AUTH MATRICA                                │
+├──────────────────┬──────────────┬─────────────────────────────┤
+│  Invocation      │  Auth?       │  Obrazloženje               │
+├──────────────────┼──────────────┼─────────────────────────────┤
+│  CLI (Typer)     │  ❌ NE       │  Lokalna mašina = trusted   │
+│  Python file     │  ❌ NE       │  Lokalna mašina = trusted   │
+│  REST API        │  ✅ DA (JWT) │  Mrežni pristup = zaštićen  │
+│  Web UI          │  ✅ DA (JWT) │  Browser = zaštićen         │
+└──────────────────┴──────────────┴─────────────────────────────┘
+```
+
+**Obrazloženje:** CLI i Python file se izvršavaju na lokalnoj mašini — ko ima pristup terminalu već je "autentikovan" na OS nivou. Web UI i API su izloženi na mreži (localhost ili remote) pa zahtevaju JWT.
+
+### Auth flow dijagram
+
+```
+CLI / Python file:
+  gandra-tools youtube transcript --url "..."
+       │
+       ▼
+  ┌──────────────┐
+  │  Direktno    │  ← Nema auth, nema JWT
+  │  Service     │     Koristi default user iz settings
+  │  poziv       │
+  └──────────────┘
+
+
+Web UI / REST API:
+  Browser / curl → POST /api/v1/auth/login
+       │                { email, password }
+       ▼
+  ┌──────────────┐     ┌──────────────┐
+  │  Auth        │────▶│  JWT Token   │
+  │  Middleware   │     │  (15min exp) │
+  └──────────────┘     └──────┬───────┘
+                              │
+       Svaki sledeći request: │  Authorization: Bearer <token>
+                              ▼
+                    ┌──────────────────┐
+                    │  Protected       │
+                    │  Endpoint        │
+                    └──────────────────┘
+```
+
+### Implementacija
+
+```python
+# core/auth.py
+
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPBearer
+
+security = HTTPBearer(auto_error=False)
+
+async def require_auth(request: Request, token = Depends(security)):
+    """Middleware za Web/API — zahteva JWT."""
+    if token is None:
+        raise HTTPException(401, "Authentication required")
+    payload = verify_jwt(token.credentials)
+    if not payload:
+        raise HTTPException(401, "Invalid or expired token")
+    return payload
+
+def get_current_user_or_default(request: Request = None, token = Depends(security)):
+    """Za servise koji rade i iz CLI i iz API.
+    Ako nema tokena (CLI context) → vrati default usera iz settings.
+    Ako ima token (API context) → vrati autentikovanog usera.
+    """
+    if token:
+        return verify_jwt(token.credentials)
+    return get_default_user()  # Iz global settings
+
+
+# Routers — API endpoints koriste require_auth
+@router.post("/api/v1/youtube/transcript", dependencies=[Depends(require_auth)])
+async def extract_transcript(input: TranscriptInput): ...
+
+# CLI — direktno poziva service, bez auth
+# cli.py
+@app.command()
+def transcript(url: str, ...):
+    service = YouTubeTranscriptService()
+    result = service.extract(TranscriptInput(url=url, ...))
+```
+
+### CLI komanda za promenu passworda
+
+```bash
+# Promena passworda iz CLI
+gandra-tools auth change-password
+# Trenutni password: ********
+# Novi password: ********
+# Potvrdi novi password: ********
+# ✅ Password promenjen.
+
+# Ili non-interactive
+gandra-tools auth change-password --current "topsecret" --new "newsecret123"
+
+# Reset na default (admin only, faza 2)
+gandra-tools auth reset-password --user dragan.mijatovic@cramick-it.com
+```
+
+```python
+# tools/auth komande u cli.py
+
+@auth_app.command("change-password")
+def change_password(
+    current: str = typer.Option(None, prompt=True, hide_input=True),
+    new: str = typer.Option(None, prompt=True, hide_input=True, confirmation_prompt=True),
+):
+    """Promeni password za trenutnog korisnika."""
+    user_service = UserService()
+    if not user_service.verify_password(current):
+        typer.echo("❌ Pogrešan trenutni password.")
+        raise typer.Exit(1)
+    user_service.update_password(new)
+    typer.echo("✅ Password promenjen.")
+```
+
+### Faze
+
 ```
 Faza 1 (sada):
-  - Jedan user, hardcoded u settings
-  - dragan.mijatovic@cramick-it.com / "topsecret"
-  - JWT token za API pristup
-  - API keys čuvani u SQLite (encrypted)
+  - Jedan user (dragan.mijatovic@cramick-it.com)
+  - Password hashovan u SQLite (bcrypt)
+  - JWT za Web/API (15min expiry, refresh token)
+  - CLI = no auth, koristi default user
+  - BYOK keys čuvani encrypted (Fernet) u SQLite
 
 Faza 2 (kasnije):
   - Multi-user sa registracijom
   - Svaki user ima svoj BYOK key store
   - Role-based access (admin/user)
+  - CLI opciono: --user flag za multi-user mašine
+```
+
+---
+
+## 14a. Settings arhitektura — Global, User, Resolution
+
+### Koncept: dva nivoa settings
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   SETTINGS RESOLUTION ORDER                   │
+│                                                               │
+│  Kad se čita setting vrednost:                                │
+│                                                               │
+│   1. User-level setting    ← Ako postoji, koristi ovo        │
+│   2. Global-level setting  ← Fallback ako nema user-level    │
+│   3. Hardcoded default     ← Fallback ako nema ni global     │
+│                                                               │
+│  Primer za "llm.provider":                                    │
+│    User: "anthropic"       → koristi "anthropic"              │
+│    Global: "openai"        → ignorisano (user ima override)   │
+│    Default: "openai"       → ignorisano                       │
+│                                                               │
+│  Primer za "llm.temperature":                                 │
+│    User: (nije setovano)                                      │
+│    Global: 0.7             → koristi 0.7                      │
+│    Default: 1.0            → ignorisano (global ima vrednost) │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Settings kategorije
+
+| Kategorija | Primeri | Gde se menja |
+|-----------|---------|-------------|
+| **LLM** | provider, model, temperature, max_tokens | Web UI Settings, CLI |
+| **Embeddings** | provider, model | Web UI Settings, CLI |
+| **BYOK Keys** | openai_api_key, anthropic_api_key, ollama_url | Web UI Settings, CLI |
+| **Output** | default_output_dir, default_format | CLI, Web UI |
+| **Environment** | active_env, env-specific overrides | CLI `env set`, Web UI |
+| **UI** | theme, language, sidebar_collapsed | Web UI |
+| **System** | log_level, debug, db_path | Global only (admin) |
+
+### DB model
+
+```python
+# models/database.py
+
+class GlobalSetting(Base):
+    """Globalna podešavanja — važe za sve korisnike."""
+    __tablename__ = "global_settings"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(Text)                    # JSON-encoded
+    category: Mapped[str] = mapped_column(String)               # "llm", "output", "system"
+    description: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+class UserSetting(Base):
+    """User-level podešavanja — override globalnih."""
+    __tablename__ = "user_settings"
+
+    user_id: Mapped[str] = mapped_column(String, primary_key=True)
+    key: Mapped[str] = mapped_column(String, primary_key=True)  # Composite PK
+    value: Mapped[str] = mapped_column(Text)                    # JSON-encoded
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+```
+
+### SettingsService — resolution logic
+
+```python
+# core/settings_service.py
+
+class SettingsService:
+    """Čita settings sa resolution: user → global → default."""
+
+    DEFAULTS = {
+        "llm.provider": "openai",
+        "llm.model": "gpt-4o",
+        "llm.temperature": 1.0,
+        "llm.max_tokens": 4000,
+        "embeddings.provider": "openai",
+        "embeddings.model": "text-embedding-3-small",
+        "output.default_dir": "./output/",
+        "output.default_format": "md",
+        "env.active": None,              # Nema default env
+        "system.log_level": "INFO",
+        "system.debug": False,
+    }
+
+    def get(self, key: str, user_id: str | None = None) -> Any:
+        """Čitaj setting sa resolution order."""
+        # 1. User-level
+        if user_id:
+            user_val = self._get_user_setting(user_id, key)
+            if user_val is not None:
+                return user_val
+
+        # 2. Global-level
+        global_val = self._get_global_setting(key)
+        if global_val is not None:
+            return global_val
+
+        # 3. Hardcoded default
+        return self.DEFAULTS.get(key)
+
+    def set_user(self, user_id: str, key: str, value: Any): ...
+    def set_global(self, key: str, value: Any): ...
+    def delete_user(self, user_id: str, key: str): ...    # Revert to global
+    def list_all(self, user_id: str) -> dict:
+        """Vrati sve settings sa resolved vrednostima i izvorom."""
+        # Returns: {"llm.provider": {"value": "anthropic", "source": "user"}, ...}
+
+    def get_effective(self, user_id: str) -> dict:
+        """Vrati flat dict svih resolved settings (za inject u tool context)."""
+```
+
+### CLI komande za settings
+
+```bash
+# ── Pregled ────────────────────────────────────────
+gandra-tools config show
+# ┌─────────────────────┬────────────┬────────┐
+# │ Key                  │ Value      │ Source │
+# ├─────────────────────┼────────────┼────────┤
+# │ llm.provider         │ anthropic  │ user   │
+# │ llm.model            │ gpt-4o     │ global │
+# │ llm.temperature      │ 1.0        │ default│
+# │ output.default_dir   │ ./output/  │ global │
+# │ env.active           │ office-dt  │ user   │
+# └─────────────────────┴────────────┴────────┘
+
+gandra-tools config show --category llm
+# Samo LLM settings
+
+# ── Set / Delete ───────────────────────────────────
+gandra-tools config set llm.provider anthropic          # User-level (default)
+gandra-tools config set llm.provider openai --global    # Global-level
+gandra-tools config delete llm.provider                 # Obriši user override → fallback na global
+gandra-tools config reset                               # Obriši sve user overrides
+
+# ── Bulk import/export ─────────────────────────────
+gandra-tools config export > my-settings.json
+gandra-tools config import my-settings.json
+```
+
+### REST API za settings
+
+```
+GET  /api/v1/settings                    → Svi resolved settings za ulogovanog usera
+GET  /api/v1/settings?category=llm       → Samo LLM kategorija
+GET  /api/v1/settings/:key               → Jedna vrednost + metadata (source)
+PUT  /api/v1/settings/:key               → Set user-level setting
+DEL  /api/v1/settings/:key               → Obriši user override
+
+GET  /api/v1/settings/global             → Global settings (admin)
+PUT  /api/v1/settings/global/:key        → Set global setting (admin)
+```
+
+### Web UI — Settings stranica
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚙️ Settings                                                │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─── LLM Provider ─────────────────────────────────────┐   │
+│  │  Provider    ┌──────────┐   Model   ┌──────────────┐ │   │
+│  │              │Anthropic▾│           │claude-sonnet▾│ │   │
+│  │              └──────────┘           └──────────────┘ │   │
+│  │  Source: user override              Source: global    │   │
+│  │  [Reset to global]                                    │   │
+│  └───────────────────────────────────────────────────────┘   │
+│                                                              │
+│  ┌─── API Keys (BYOK) ──────────────────────────────────┐   │
+│  │  OpenAI      ┌──────────────────────────┐             │   │
+│  │              │ sk-••••••••••••••7x3Q    │             │   │
+│  │              └──────────────────────────┘             │   │
+│  │  Anthropic   ┌──────────────────────────┐             │   │
+│  │              │ sk-ant-••••••••••••pK2   │             │   │
+│  │              └──────────────────────────┘             │   │
+│  │  Ollama URL  ┌──────────────────────────┐             │   │
+│  │              │ http://localhost:11434    │             │   │
+│  │              └──────────────────────────┘             │   │
+│  └───────────────────────────────────────────────────────┘   │
+│                                                              │
+│  ┌─── Environment ──────────────────────────────────────┐   │
+│  │  Active: 🟢 office-dt (Dimitrija Tucovića)           │   │
+│  │  [Change Environment ▾]                               │   │
+│  └───────────────────────────────────────────────────────┘   │
+│                                                              │
+│  ┌─── Output ────────────────────────────────────────────┐   │
+│  │  Default Dir   ┌────────────────┐  Format ┌──────┐   │   │
+│  │                │ ./output/      │         │ MD ▾│   │   │
+│  │                └────────────────┘         └──────┘   │   │
+│  └───────────────────────────────────────────────────────┘   │
+│                                                              │
+│  ┌──────────┐                                                │
+│  │ 💾 Save  │                                                │
+│  └──────────┘                                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 14b. Codebook — Environments
+
+### Koncept
+
+Environment = **fizička lokacija / mrežni kontekst** u kome se korisnik nalazi. Svaki environment ima svoje specifičnosti (IP adresa, mrežni pristup, preferirana podešavanja).
+
+Environments se modeliraju u **Codebook** tabeli — referentni podaci kojima se upravlja iz CLI i Web UI.
+
+### Predefinisani environments
+
+| Slug | Naziv | Lokacija | IP Range | Napomena |
+|------|-------|----------|----------|----------|
+| `office-dt` | Kancelarija DT | Dimitrija Tucovića | 192.168.1.x | Glavni office |
+| `office-sistemi` | Kancelarija Sistemi | Sistemi doo | 10.0.0.x | Klijentski office |
+| `home-milesevska` | Kuća Mileševska | Mileševska | 192.168.0.x | Remote rad |
+| `mobile` | Mobilni | Bilo gde | — | Hotspot / kafić |
+
+### DB model
+
+```python
+# models/database.py
+
+class CodebookEnvironment(Base):
+    """Codebook: definicija environment-a."""
+    __tablename__ = "codebook_environments"
+
+    slug: Mapped[str] = mapped_column(String, primary_key=True)  # "office-dt"
+    name: Mapped[str] = mapped_column(String)                     # "Kancelarija DT"
+    location: Mapped[str | None] = mapped_column(String)          # "Dimitrija Tucovića"
+    ip_range: Mapped[str | None] = mapped_column(String)          # "192.168.1.0/24"
+    description: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)  # Samo jedan active
+    settings_overrides: Mapped[str | None] = mapped_column(Text)  # JSON: env-specific settings
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)
+```
+
+### Settings resolution sa environment-om
+
+Sada imamo **3 nivoa + env overlay**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              SETTINGS RESOLUTION ORDER (v2)                   │
+│                                                               │
+│   1. User-level setting             ← Najviši prioritet      │
+│   2. Active environment override    ← Env-specific           │
+│   3. Global-level setting           ← System-wide            │
+│   4. Hardcoded default              ← Fallback               │
+│                                                               │
+│  Primer: "output.default_dir"                                 │
+│    User: (nema)                                               │
+│    Env (office-dt): "/mnt/share/output/"  → koristi ovo ✓    │
+│    Global: "./output/"                    → ignorisano        │
+│    Default: "./output/"                   → ignorisano        │
+│                                                               │
+│  Primer: "llm.provider"                                       │
+│    User: "anthropic"                → koristi ovo ✓           │
+│    Env (office-dt): "ollama"        → ignorisano (user > env) │
+│    Global: "openai"                 → ignorisano              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Environment-specific settings (overrides)
+
+Svaki environment može imati svoja podešavanja koja override-uju global:
+
+```json
+// CodebookEnvironment.settings_overrides za "office-dt"
+{
+    "llm.provider": "ollama",
+    "llm.model": "llama3.2",
+    "ollama.base_url": "http://192.168.1.100:11434",
+    "output.default_dir": "/mnt/share/gandra-output/"
+}
+
+// Za "home-milesevska"
+{
+    "llm.provider": "openai",
+    "output.default_dir": "~/Documents/gandra-output/"
+}
+
+// Za "office-sistemi"
+{
+    "llm.provider": "ollama",
+    "ollama.base_url": "http://10.0.0.50:11434",
+    "output.default_dir": "/data/gandra-output/"
+}
+```
+
+**Use case:** U kancelariji DT imaš lokalni Ollama server na jakoj mašini — automatski koristiš njega. Kod kuće nemaš Ollama — koristiš OpenAI API. Samo promeniš env i svi settings se prilagode.
+
+### CLI komande za environments
+
+```bash
+# ── Lista environments ─────────────────────────────
+gandra-tools env list
+# ┌──────────────────┬───────────────────────┬──────────────┬────────┐
+# │ Slug             │ Naziv                 │ Lokacija     │ Active │
+# ├──────────────────┼───────────────────────┼──────────────┼────────┤
+# │ office-dt        │ Kancelarija DT        │ D. Tucovića  │ 🟢     │
+# │ office-sistemi   │ Kancelarija Sistemi   │ Sistemi doo  │        │
+# │ home-milesevska  │ Kuća Mileševska       │ Mileševska   │        │
+# │ mobile           │ Mobilni               │ —            │        │
+# └──────────────────┴───────────────────────┴──────────────┴────────┘
+
+# ── Set active environment ─────────────────────────
+gandra-tools env set office-dt
+# 🟢 Active environment: office-dt (Kancelarija DT)
+# Settings overrides:
+#   llm.provider → ollama
+#   llm.model → llama3.2
+#   ollama.base_url → http://192.168.1.100:11434
+#   output.default_dir → /mnt/share/gandra-output/
+
+gandra-tools env set home-milesevska
+# 🟢 Active environment: home-milesevska (Kuća Mileševska)
+
+# ── Koji env je aktivan? ───────────────────────────
+gandra-tools env current
+# 🟢 office-dt (Kancelarija DT) — D. Tucovića
+# IP range: 192.168.1.0/24
+# Overrides: llm.provider=ollama, output.default_dir=/mnt/share/...
+
+# ── CRUD za environments ───────────────────────────
+gandra-tools env add office-novi \
+    --name "Nova kancelarija" \
+    --location "Bulevar Mihajla Pupina" \
+    --ip-range "172.16.0.0/24"
+
+gandra-tools env edit office-dt --ip-range "192.168.1.0/24"
+
+gandra-tools env override office-dt llm.provider ollama
+gandra-tools env override office-dt ollama.base_url "http://192.168.1.100:11434"
+# Setuj env-specific setting override
+
+gandra-tools env remove office-novi
+# ⚠️ Da li ste sigurni? [y/N]
+
+# ── Auto-detect (buduće) ──────────────────────────
+gandra-tools env detect
+# 🔍 Trenutni IP: 192.168.1.42
+# 📍 Match: office-dt (192.168.1.0/24)
+# Želite li aktivirati? [Y/n]
+```
+
+### REST API za environments
+
+```
+GET  /api/v1/environments                    → Lista svih environments
+GET  /api/v1/environments/current            → Aktivni environment + overrides
+POST /api/v1/environments                    → Kreiraj novi environment
+PUT  /api/v1/environments/:slug              → Ažuriraj environment
+DEL  /api/v1/environments/:slug              → Obriši environment
+POST /api/v1/environments/:slug/activate     → Setuj kao aktivan
+PUT  /api/v1/environments/:slug/overrides    → Set env-specific settings
+```
+
+### Web UI — Environment indicator
+
+Environment je **uvek vidljiv** u header-u aplikacije:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔧 Gandra Tools    │ 🟢 office-dt ▾│  ⚙️  │  👤 Dragan  │
+├─────────────────────────────────────────────────────────────┤
+│                         │                                    │
+│  Sidebar               │    Content                          │
+│  ├── 💬 Chat           │                                    │
+│  ├── 🎬 YouTube       │                                    │
+│  ├── 🔍 Research      │                                    │
+│  ├── 🖼️ ImageOps     │                                    │
+│  ├── 📁 FileOps      │                                    │
+│  ├── 🔧 DevTools     │                                    │
+│  └── ⚙️ Settings     │                                    │
+│                        │                                    │
+└─────────────────────────────────────────────────────────────┘
+
+Klik na "🟢 office-dt ▾" otvara dropdown:
+┌─────────────────────────────────┐
+│ 🟢 office-dt         (active)  │
+│    office-sistemi               │
+│    home-milesevska              │
+│    mobile                       │
+│ ──────────────────────────────  │
+│ + Dodaj environment             │
+└─────────────────────────────────┘
+```
+
+### Codebook proširivost
+
+`codebook_environments` je prvi codebook. Struktura je dizajnirana da se lako dodaju novi codebook-ovi:
+
+```
+Codebook tabele (buduće):
+  codebook_environments     ← Lokacije / mrežni konteksti
+  codebook_llm_presets      ← Predefinisane LLM konfiguracije (npr. "creative", "precise")
+  codebook_output_templates ← Predefinisani output šabloni
+  codebook_tags             ← Tagovi za organizaciju research rezultata
+```
+
+### Ažurirani SettingsService
+
+```python
+# core/settings_service.py (v2)
+
+class SettingsService:
+    """Čita settings sa resolution: user → env → global → default."""
+
+    def get(self, key: str, user_id: str | None = None) -> Any:
+        # 1. User-level
+        if user_id:
+            user_val = self._get_user_setting(user_id, key)
+            if user_val is not None:
+                return user_val
+
+        # 2. Active environment override
+        active_env = self._get_active_environment()
+        if active_env and active_env.settings_overrides:
+            overrides = json.loads(active_env.settings_overrides)
+            if key in overrides:
+                return overrides[key]
+
+        # 3. Global-level
+        global_val = self._get_global_setting(key)
+        if global_val is not None:
+            return global_val
+
+        # 4. Hardcoded default
+        return self.DEFAULTS.get(key)
+
+    def get_with_source(self, key: str, user_id: str | None = None) -> tuple[Any, str]:
+        """Vrati (value, source) gde je source: 'user'|'env'|'global'|'default'."""
+        ...
 ```
 
 ---
@@ -1994,6 +2600,7 @@ gandra-tools-app/
 │   │       │   ├── config.py                # Pydantic BaseSettings
 │   │       │   ├── auth.py                  # JWT + password hashing
 │   │       │   ├── plugin.py                # Plugin base class + registry
+│   │       │   ├── settings_service.py      # Settings resolution (user→env→global→default)
 │   │       │   ├── llm/
 │   │       │   │   ├── __init__.py
 │   │       │   │   ├── base.py              # BaseLLMClient ABC
@@ -2061,7 +2668,8 @@ gandra-tools-app/
 │   │       └── routers/
 │   │           ├── __init__.py
 │   │           ├── auth.py                  # /api/v1/auth/*
-│   │           ├── settings.py              # /api/v1/settings
+│   │           ├── settings.py              # /api/v1/settings (CRUD + resolution)
+│   │           ├── environments.py          # /api/v1/environments (CRUD + activate)
 │   │           ├── health.py                # /api/v1/health
 │   │           ├── publish.py               # /api/v1/publish/*
 │   │           └── tools.py                 # /api/v1/tools (lista alata)
@@ -2072,6 +2680,8 @@ gandra-tools-app/
 │       │   ├── core/
 │       │   │   ├── test_config.py
 │       │   │   ├── test_auth.py
+│       │   │   ├── test_settings_service.py     # Resolution order, env overrides
+│       │   │   ├── test_environments.py          # Codebook CRUD, activate
 │       │   │   ├── test_plugin_registry.py
 │       │   │   └── test_llm_factory.py
 │       │   ├── publisher/
@@ -2097,17 +2707,21 @@ gandra-tools-app/
 │       │   ├── test_research_e2e.py
 │       │   └── test_imageops_e2e.py
 │       ├── api/
-│       │   ├── test_auth_api.py
+│       │   ├── test_auth_api.py             # Login, JWT, password change
 │       │   ├── test_youtube_api.py
 │       │   ├── test_research_api.py
 │       │   ├── test_imageops_api.py
 │       │   ├── test_publish_api.py
-│       │   └── test_settings_api.py
+│       │   ├── test_settings_api.py         # CRUD + resolution
+│       │   └── test_environments_api.py     # CRUD + activate
 │       └── cli/
 │           ├── test_youtube_cli.py
 │           ├── test_research_cli.py
 │           ├── test_imageops_cli.py
-│           └── test_fileops_cli.py
+│           ├── test_fileops_cli.py
+│           ├── test_auth_cli.py             # change-password
+│           ├── test_config_cli.py           # config show/set/delete
+│           └── test_env_cli.py              # env list/set/current/add
 │
 └── gandra-tools-ui/                         # ══ FRONTEND ══
     ├── package.json
@@ -2171,7 +2785,10 @@ gandra-tools-app/
 - **Docker Compose** za lokalne servise (Ollama, PostgreSQL, Redis)
 - **Vue 3 + Vite** za UI (konzistentno sa workspace-om)
 - **Typer** za CLI (moderan, auto-help, type hints)
-- **~200 testova** (unit, integration, API, CLI) sa jasnom strukturom
+- **Auth matrica:** CLI/Python = no auth (trusted local), Web/API = JWT required
+- **Settings resolution:** user → env → global → default (4 nivoa)
+- **Codebook environments:** lokacija-based profili sa settings overrides
+- **~245 testova** (unit, integration, API, CLI) sa jasnom strukturom
 - **SQLite** za početak, migracija na PostgreSQL kad zatreba pgvector
 
-Ključna prednost: svaki novi tool = **jedan folder sa 5 fajlova**, bez diranja `main.py`, CLI entry pointa, niti bilo čega drugog u sistemu. Publisher modul se može koristiti i u drugim projektima.
+Ključna prednost: svaki novi tool = **jedan folder sa 5 fajlova**, bez diranja `main.py`, CLI entry pointa, niti bilo čega drugog u sistemu. Publisher modul se može koristiti i u drugim projektima. Promena environment-a automatski prilagođava sve settings bez ručnog menjanja.
