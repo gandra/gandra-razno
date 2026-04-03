@@ -1,0 +1,20 @@
+intent klasifikacijs
+pa inda review
+pa akcija
+- app prvo radi klasifikacijj intenta
+
+- mcp serever za scrapping ,za vesti koji nisu youtube
+
+- email checker: special ensil, tags
+- n8n?
+- personal reminder, task, alarms
+- flutter app za notifikacije i bitne akcije za pocetak
+- push notfikacije
+
+- flutter app prati lolaciju
+- tasks reminders todo’s location aware
+- podsetnik
+- unos tocenja goriva
+- unos paljenja cigare
+
+

@@ -13,7 +13,7 @@
 | **2** | Publisher modul | **DONE** | 8 formattera + service + router + 30 testova |
 | **3** | YouTube transcript | **DONE** | schemas, service, router, CLI (interactive), 22 testova |
 | **4** | CLI framework | **DONE** | Autodiscovery, publish CLI, 13 testova |
-| **5** | Image Text Extractor | PLANIRANO | OCR + transparent PNG |
+| **5** | Image Text Extractor | **DONE** | schemas, OCR service, router, CLI, 15 testova |
 | **6** | RAG Research | PLANIRANO | Multi-link analiza |
 | **7** | File operations | PLANIRANO | Search + rename |
 | **8** | Web UI | PLANIRANO | Vue 3 + Vite + Tailwind |
