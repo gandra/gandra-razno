@@ -12,7 +12,7 @@
 | **1** | Scaffold + core infra | **DONE** | 16 src + 8 test fajlova, 27 testova |
 | **2** | Publisher modul | **DONE** | 8 formattera + service + router + 30 testova |
 | **3** | YouTube transcript | **DONE** | schemas, service, router, CLI (interactive), 22 testova |
-| **4** | CLI framework | PLANIRANO | Typer sa autodiscovery |
+| **4** | CLI framework | **DONE** | Autodiscovery, publish CLI, 13 testova |
 | **5** | Image Text Extractor | PLANIRANO | OCR + transparent PNG |
 | **6** | RAG Research | PLANIRANO | Multi-link analiza |
 | **7** | File operations | PLANIRANO | Search + rename |

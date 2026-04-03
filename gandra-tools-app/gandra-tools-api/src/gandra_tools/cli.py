@@ -1,8 +1,9 @@
-"""Typer CLI entry point."""
+"""Typer CLI entry point with tool autodiscovery."""
+
+import importlib
+import pkgutil
 
 import typer
-
-from gandra_tools.tools.youtube.cli import youtube_app
 
 app = typer.Typer(
     name="gandra-tools",
@@ -10,8 +11,89 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-# ── Tool subcommands ─────────────────────────────────────────
-app.add_typer(youtube_app, name="youtube")
+
+# ── Tool subcommand autodiscovery ────────────────────────────
+def _discover_tool_cli_apps() -> None:
+    """Scan tools/ subpackages for cli.py modules with a Typer app."""
+    try:
+        import gandra_tools.tools as tools_pkg
+    except ImportError:
+        return
+
+    for _importer, module_name, is_pkg in pkgutil.iter_modules(tools_pkg.__path__):
+        if not is_pkg:
+            continue
+        try:
+            cli_mod = importlib.import_module(f"gandra_tools.tools.{module_name}.cli")
+        except ImportError:
+            continue
+
+        # Convention: cli.py exports a Typer app named <tool_name>_app
+        for attr_name in dir(cli_mod):
+            attr = getattr(cli_mod, attr_name)
+            if isinstance(attr, typer.Typer) and attr is not app:
+                app.add_typer(attr, name=module_name)
+                break
+
+
+_discover_tool_cli_apps()
+
+
+# ── Publish command ──────────────────────────────────────────
+publish_app = typer.Typer(help="Publish content in various formats.")
+app.add_typer(publish_app, name="publish")
+
+
+@publish_app.command("file")
+def publish_file(
+    input_path: str = typer.Argument(..., help="Path to JSON file with content"),
+    fmt: str = typer.Option("md", "--format", "-f", help="Output format (md, json, txt, html, facebook, linkedin, instagram, x)"),
+    output: str = typer.Option(None, "--output", "-o", help="Output file path"),
+    content_type: str = typer.Option("generic", "--type", "-t", help="Content type for template selection"),
+):
+    """Publish a JSON file to another format."""
+    import json
+    from pathlib import Path
+
+    from gandra_tools.core.publisher.schemas import PublishRequest
+    from gandra_tools.core.publisher.service import PublisherService
+    from gandra_tools.models.schemas import OutputFormat
+
+    path = Path(input_path)
+    if not path.exists():
+        typer.echo(f"File not found: {input_path}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        content = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        typer.echo(f"Invalid JSON: {e}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        output_format = OutputFormat(fmt)
+    except ValueError:
+        typer.echo(f"Unknown format: {fmt}. Available: {', '.join(f.value for f in OutputFormat)}", err=True)
+        raise typer.Exit(1)
+
+    if not output:
+        output = str(path.with_suffix(f".{fmt}"))
+
+    publisher = PublisherService()
+    resp = publisher.publish(
+        PublishRequest(content=content, content_type=content_type, format=output_format, output_path=output)
+    )
+    typer.echo(f"Published: {resp.file_path} ({resp.size_bytes} bytes)")
+
+
+@publish_app.command("formats")
+def publish_formats():
+    """List all supported output formats."""
+    from gandra_tools.core.publisher.service import PublisherService
+
+    for fmt in PublisherService.get_supported_formats():
+        typer.echo(f"  {fmt}")
+
 
 # ── Auth commands ────────────────────────────────────────────
 auth_app = typer.Typer(help="Authentication commands.")
@@ -31,12 +113,10 @@ def change_password(
 
     settings = get_settings()
 
-    # Phase 1: compare plain text against default password
     if current != settings.default_user_password:
         typer.echo("Current password is incorrect.", err=True)
         raise typer.Exit(1)
 
-    # Store new hash (Phase 1: print confirmation, DB storage in Phase 2)
     _new_hash = hash_password(new)
     typer.echo("Password changed successfully.")
 

@@ -2787,7 +2787,7 @@ gandra-tools-app/
 | **1** | Scaffold + core infra | ~~pyproject.toml, docker-compose-local.yml, config, auth, LLM factory~~ **DONE** (27 testova) |
 | **2** | Publisher modul | ~~Formatteri (JSON/MD/TXT/HTML + social), Jinja2 templates~~ **DONE** (30 testova) |
 | **3** | YouTube transcript | ~~Prvi tool end-to-end (API + CLI + standalone + publish)~~ **DONE** (22 testova) |
-| **4** | CLI framework | Typer sa autodiscovery, config subcommand |
+| **4** | CLI framework | ~~Typer sa autodiscovery, config subcommand~~ **DONE** (13 testova) |
 | **5** | Image Text Extractor | OCR pipeline, transparent PNG rendering, interactive mode |
 | **6** | RAG Research | Web scraping, embedding, multi-pass analysis, publish |
 | **7** | File operations | Search + rename (sa dry-run) |
