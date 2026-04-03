@@ -15,9 +15,9 @@
 | **4** | CLI framework | **DONE** | Autodiscovery, publish CLI, 13 testova |
 | **5** | Image Text Extractor | **DONE** | schemas, OCR service, router, CLI, 15 testova |
 | **6** | RAG Research | **DONE** | 4-pass pipeline, schemas, service, router, CLI, 17 testova |
-| **7** | File operations | PLANIRANO | Search + rename |
+| **7** | File operations | **DONE** | search + rename (10 strategies), dry-run, 22 testova |
 | **8** | Web UI | PLANIRANO | Vue 3 + Vite + Tailwind |
-| **9** | DevTools | PLANIRANO | API tester, code review |
+| **9** | DevTools | **DONE** | API tester + AI code review, 16 testova |
 | **10** | Polish | PLANIRANO | Error handling, logging, CI |
 
 ---

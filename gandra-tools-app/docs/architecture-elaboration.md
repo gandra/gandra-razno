@@ -2790,9 +2790,9 @@ gandra-tools-app/
 | **4** | CLI framework | ~~Typer sa autodiscovery, config subcommand~~ **DONE** (13 testova) |
 | **5** | Image Text Extractor | ~~OCR pipeline, transparent PNG rendering, interactive mode~~ **DONE** (15 testova) |
 | **6** | RAG Research | ~~Web scraping, multi-pass analysis, publish~~ **DONE** (17 testova) |
-| **7** | File operations | Search + rename (sa dry-run) |
+| **7** | File operations | ~~Search + rename (sa dry-run)~~ **DONE** (22 testova) |
 | **8** | Web UI | Vue 3 scaffold, chat page, tool pages (YT, Research, ImageOps, FileOps), settings |
-| **9** | DevTools | API tester, code review |
+| **9** | DevTools | ~~API tester, code review~~ **DONE** (16 testova) |
 | **10** | Polish | Error handling, logging, CI pipeline, docs |
 
 ---
