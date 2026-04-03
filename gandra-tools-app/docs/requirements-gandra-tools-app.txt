@@ -1,0 +1,50 @@
+Zelim da uradis elaboraciju u gandra-razno/gandra-tools-app/docs/ za sledece:
+
+- zelim da scafold u gandra-razno/gandra-tools-app/ 2 projuekta: fastapi i jos neki ui deo
+
+Zelim da scafold fastapi app projekat koji mogu da  koristim na vise nacina za razne namene
+1) api poziv
+2) cli sa nekim dobreim cli handlerom, parametrs, help ...
+3) direktno pozivanje pojedinacnih specificnih fahlova
+4) web chat ui interface
+Alat ce imati sirok spektar namene, neka vrsta svajcarkog toolset-a za razne situacije:
+- razlicite pomoci prilikom istrazivanja neke teme npr extract from youtube video transcript with timestamp
+- ili npr extract from youtube images with timestamp
+- napredna pretraga u nekom folder naziva fajlova, sadrzaja fajlova ....
+- testiranje api poziva
+- renames files in folder na razlicite predefinisane stragejije, dodavanje prefix i li suffix i illi slugify i ilil uppercase ....
+- provera kvaliteta koda, code review
+- itd...
+- koristili bi uv package manager
+- elaboirirati arhitekturu, da se mozda koriste moduli, osmisliti podelu modula, domena, kategorizaciju, grupisanje ....
+- u root-u gandra-tool-app treba napraviti PYTHON_ENVIRONMENT_GANDRA_TOOL_APP.MD pocevsi od zabbix-ai-backend/PYTHON_ENVIRONMENT.MD samo shodno nasem projektu
+
+Racunaj da za pocetak imamo sledece tools/utilities:
+- zelim da mogu da iz youtube video linka dodjem do kompetnog teksta iz videa sa transkripciom na svakih minut ili dva
+- zelim da mogu sacuvaj fiule sa linkovima i ili linkovima i bitnim delovima teksta koji treba da se istrazi i da se onda pokrene neki rag koji ce da istrazi detaljno po internetu i svojj bazi i da napravi jedan sveobuhvati dokument analize gde je na pocetku summary, onda ide produbljivanje, sadrzaj, vise detalja
+- primer analize bi bio da posaljem 20ak linkova koje govore o nekoj vesti
+- zelim da istrazim verodostojnost vesti, veropvatnoicu istine, reliabililty, ekstremen  tacke gledista, uporisne strane svakog narrativa ako ih ima vise, slabe tacke
+- za inspiraciju kako dizajnirati rag pogledati sledeca 2 projekta:
+1) sistemi/zabbix-ai-personal-assistant/zabbix-ai-backend i sistemi/zabbix-ai-personal-assistant/zabbix-ai-chat-ui
+2) companydevs/companydevs-ai
+- uzeti najbolje od oba
+- projekat bi uglavnom ja koristio ali moze se desiti da kasnije dodam jos nekog usera
+- idemo za sad samo jedan user dragan.mijatovic@cramick-it.com, password "topsecret"
+- implementira se koncept BYOK , user nosi svoj api key
+- zelim da moze da bira openai, claude ili ollama isto kao i u sistemi/zabbix-ai-personal-assistant/zabbix-ai-demo-projekti/
+- isto tasko na uii delu koze da bira koji model salje koji provider
+- na backendu se primaju ti params sa ui a ako ih nema koristi se default sa backend strane
+- defaults su u settings
+- u settings mozemo da menjamo i embeddings
+
+Sto se tice ui projekta, sta preporucujes za web ui, koji stack?
+- webui bi imao chat ui kao npr sistemi/zabbix-ai-personal-assistant/zabbix-ai-chat-ui ali bi imao i druge strane za npr konverziju youtube u transacript
+- tako da sustincki imamo 4 nacina pozivanja:
+a) web ui
+b) REST API
+3) cli
+4) python file
+- elaboriraj kao bi bila arhitektuira i folder structure i layout
+
+Elaboriraj razlicite pristupe, prednosti i mane, ogranicenja, koristi tabele i marmaid ili ascii dijagrame u zavisnosti sta bolje moze da pomogne u pojasnjenju i skiciranju pristupa, prilikom listanja pristupa u naslovu preporucenog stavi u zagradi preporuka zvezda i na kraju obrazlozi preporuku.
+Ascii dijagrami su lepo vidljivi i laksi mozda za rad.

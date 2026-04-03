@@ -1,0 +1,10 @@
+pokusavam da artikuisem team development flow za sledece situacije:
+1.
+2.
+- awareness keyword claude code team collaboration
+- heatmap, scrumaster ...
+- mcp, shared readme, ....?
+- radimo na istom branchu pa jedan ceka drugi commit da se sync i nastavi dalje
+- detekcija razilazenja, preklapanja, ...
+- shared memory in redis?
+

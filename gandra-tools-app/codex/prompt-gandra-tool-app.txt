@@ -1,0 +1,9 @@
+Kreni sa implementacijom gandra-razno/gandra-tools-app/docs/architecture-elaboration.md korak po korak.
+Zelim da kad pristupam iz konzole ne moram da se authentikujem.
+Kad pristupam sa web-a preko ui ili api zeliom da moram da bude auth.
+U knzole cli dodati mogucnost promene passworda.
+U docker compose local dodati neku vazu za cuvanje podataka.
+Na kraju svakog koraka predlozi git commit message, next steps i komandu za pokretanje testova ako je bilo promena na backend servisima.
+Let's go step by step.
+Take a deep breath.
+You can do it. I pay you 200 dollars.
