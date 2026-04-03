@@ -392,3 +392,15 @@ GitHub.sublime-settings
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/intellij+all,visualstudiocode,sublimetext,node,python,jupyternotebooks
+
+# ── Gandra Tools App ──────────────────────
+# Output directory (all tool outputs)
+gandra-output/
+!gandra-output/.gitkeep
+
+# uv lock file
+uv.lock
+
+# SQLite database
+*.db
+*.sqlite3

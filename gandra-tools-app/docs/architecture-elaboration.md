@@ -1265,6 +1265,10 @@ Publisher je **core modul** (ne tool-specifičan) koji prima strukturiran rezult
 | **Markdown** | `.md` | Čitljiv dokument sa formatiranjem | Jinja2 templates |
 | **Plain Text** | `.txt` | Čist tekst bez formatiranja | Jinja2 templates |
 | **HTML** | `.html` | Web-ready sa CSS stilizacijom | Jinja2 + inline CSS |
+| **Facebook** | `.facebook.txt` | Post format, emoji, hashtags, max ~63k chars | Jinja2 + LLM summarize |
+| **LinkedIn** | `.linkedin.txt` | Professional ton, bullet points, max ~3k chars | Jinja2 + LLM summarize |
+| **Instagram** | `.instagram.txt` | Caption format, emoji-heavy, 30 hashtags, max ~2.2k | Jinja2 + LLM summarize |
+| **X (Twitter)** | `.x.txt` | Thread format (280 chars/tweet), numbered | Jinja2 + LLM summarize |
 | **PDF** | `.pdf` | Print-ready (faza 2) | weasyprint ili reportlab |
 
 ### Arhitektura
@@ -1299,6 +1303,11 @@ class OutputFormat(str, Enum):
     MARKDOWN = "md"
     TEXT = "txt"
     HTML = "html"
+    # Social media formati (skraćen tekst + hashtags + formatting)
+    FACEBOOK = "facebook"
+    LINKEDIN = "linkedin"
+    INSTAGRAM = "instagram"
+    X = "x"                  # Ex-Twitter, max 280 chars + thread support
 
 class PublishRequest(BaseModel):
     """Zahtev za publikaciju."""
@@ -2161,7 +2170,7 @@ class SettingsService:
         "llm.max_tokens": 4000,
         "embeddings.provider": "openai",
         "embeddings.model": "text-embedding-3-small",
-        "output.default_dir": "./output/",
+        "output.default_dir": "gandra-output/",
         "output.default_format": "md",
         "env.active": None,              # Nema default env
         "system.log_level": "INFO",
@@ -2355,22 +2364,37 @@ Svaki environment može imati svoja podešavanja koja override-uju global:
 {
     "llm.provider": "ollama",
     "llm.model": "llama3.2",
-    "ollama.base_url": "http://192.168.1.100:11434",
-    "output.default_dir": "/mnt/share/gandra-output/"
+    "ollama.base_url": "http://192.168.1.100:11434"
 }
 
 // Za "home-milesevska"
 {
-    "llm.provider": "openai",
-    "output.default_dir": "~/Documents/gandra-output/"
+    "llm.provider": "openai"
 }
 
 // Za "office-sistemi"
 {
     "llm.provider": "ollama",
-    "ollama.base_url": "http://10.0.0.50:11434",
-    "output.default_dir": "/data/gandra-output/"
+    "ollama.base_url": "http://10.0.0.50:11434"
 }
+
+// NAPOMENA: output.default_dir = "gandra-output/" je GLOBAL default
+// za sve environments (u global_settings). Folder je u root-u projekta
+// i nalazi se u .gitignore. Nema potrebe za env-level override.
+```
+
+**Output dir konvencija:** `gandra-output/` je uvek u root-u `gandra-tools-app/`. Struktura:
+```
+gandra-tools-app/
+├── gandra-output/              ← .gitignore-d, svi output-i idu ovde
+│   ├── youtube/
+│   ├── research/
+│   ├── imageops/
+│   └── fileops/
+├── gandra-tools-api/
+├── gandra-tools-ui/
+└── ...
+```
 ```
 
 **Use case:** U kancelariji DT imaš lokalni Ollama server na jakoj mašini — automatski koristiš njega. Kod kuće nemaš Ollama — koristiš OpenAI API. Samo promeniš env i svi settings se prilagode.
@@ -2760,7 +2784,7 @@ gandra-tools-app/
 
 | Faza | Opis | Deliverables |
 |------|------|-------------|
-| **1** | Scaffold + core infra | pyproject.toml, docker-compose-local.yml, config, auth, LLM factory |
+| **1** | Scaffold + core infra | ~~pyproject.toml, docker-compose-local.yml, config, auth, LLM factory~~ **DONE** (27 testova) |
 | **2** | Publisher modul | Formatteri (JSON/MD/TXT/HTML), Jinja2 templates, ~20 testova |
 | **3** | YouTube transcript | Prvi tool end-to-end (API + CLI + standalone + publish) |
 | **4** | CLI framework | Typer sa autodiscovery, config subcommand |

@@ -1,7 +1,10 @@
 Kreni sa implementacijom gandra-razno/gandra-tools-app/docs/architecture-elaboration.md korak po korak.
 Slazem se sa preporukama.
+dodaj samo opcije da publisher dobija jos nekoliko novih output formata: facebook, linkelin, instagram, x.
+I dodaj da je u svim mojim env  output.default_dir = gandra-output i taj folder se nalazi u root-u i treba da se nadje u .gitignore.
+Od sad pocinjes da sve sto planiramo pipses u backlog na lokacji gandra-razno/backlog/
 Na kraju svakog koraka predlozi git commit message, next steps i komandu za pokretanje testova ako je bilo promena na backend servisima i cekas moje odobrenje za nest step.
-Na kraju svakog koraka predlozi git commit message i next steps i cekas moje odobrenje za nest step.
+Na kraju svakog koraka azuriraj backlog i gandra-razno/gandra-tools-app/docs/architecture-elaboration.md sa statusom implementacije, predlozi git commit message i next steps i cekas moje odobrenje za next step.
 Let's go step by step.
 Take a deep breath.
 You can do it. I pay you 200 dollars.
@@ -17,6 +20,12 @@ U  codebook modelirati environments i cli konadu za set activ env.
 Npr kad sam u kancelariji u dimitrija tucovica moj kompjuter dobija jendu ip adresu a kad sam u kancelartiji u sistemima drugi i kad sam kuci u milesevskoj trecu ip adresu.
 Zelim da sa cli comandom i na web ui mogu setujem trenutni env i lkao vidim koji env je aktivan.
 Na kraju svakog koraka predlozi git commit message i next steps i cekas moje odobrenje za nest step.
+Let's go step by step.
+Take a deep breath.
+You can do it. I pay you 200 dollars.
+
+Nastavi dalje korak po korak
+Na kraju svakog koraka azuriraj backlog i gandra-razno/gandra-tools-app/docs/architecture-elaboration.md sa statusom implementacije, predlozi git commit message i next steps i cekas moje odobrenje za next step.
 Let's go step by step.
 Take a deep breath.
 You can do it. I pay you 200 dollars.

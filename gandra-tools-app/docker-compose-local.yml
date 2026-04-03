@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  # ── Ollama (lokalni LLM) ──────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: gandra-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  # ── PostgreSQL + pgvector (faza 2, RAG) ───────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: gandra-postgres
+    ports:
+      - "5450:5432"
+    environment:
+      POSTGRES_DB: gandra_tools
+      POSTGRES_USER: gandra
+      POSTGRES_PASSWORD: gandra_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ── Redis (cache, rate limiting) ──────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: gandra-redis
+    ports:
+      - "6395:6379"
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  postgres_data:
