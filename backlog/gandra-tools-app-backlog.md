@@ -1,6 +1,6 @@
 # Gandra Tools App — Backlog
 
-> **Poslednje ažuriranje:** 2026-04-03 (Faza 1 implementirana)
+> **Poslednje ažuriranje:** 2026-04-04 — SVE FAZE IMPLEMENTIRANE (v1.0)
 > **Arhitektura:** `gandra-tools-app/docs/architecture-elaboration.md` (DRAFT v4)
 
 ---
@@ -18,7 +18,7 @@
 | **7** | File operations | **DONE** | search + rename (10 strategies), dry-run, 22 testova |
 | **8** | Web UI | **DONE** | Vue 3 + Vite + Tailwind, 7 stranica, layout, auth, env selector |
 | **9** | DevTools | **DONE** | API tester + AI code review, 16 testova |
-| **10** | Polish | PLANIRANO | Error handling, logging, CI |
+| **10** | Polish | **DONE** | Structured logging, global error handlers, README, 3 testova |
 
 ---
 
