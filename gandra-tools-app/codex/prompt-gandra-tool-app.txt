@@ -1,3 +1,13 @@
+intent klasifikacijs
+pa inda review
+pa akcija
+- app prvo radi klasifikacijj intenta
+
+- mcp serever za scrapping ,za vesti koji nisu youtube
+
+
+
+
 Kreni sa implementacijom gandra-razno/gandra-tools-app/docs/architecture-elaboration.md korak po korak.
 Slazem se sa preporukama.
 dodaj samo opcije da publisher dobija jos nekoliko novih output formata: facebook, linkelin, instagram, x.

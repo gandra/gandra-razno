@@ -5,7 +5,7 @@ pa akcija
 
 - mcp serever za scrapping ,za vesti koji nisu youtube
 
-- email checker: special ensil, tags
+- email checker: naprvim noviemail account za tu namenu, tags
 - n8n?
 - personal reminder, task, alarms
 - flutter app za notifikacije i bitne akcije za pocetak
